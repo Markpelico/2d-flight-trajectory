@@ -1,447 +1,346 @@
-# User Guide: Lunar Orbit Animation (Matplotlib)
-
-## Table of Contents
-1. [Overview](#overview)
-2. [Installation](#installation)
-3. [Quick Start](#quick-start)
-4. [Code Structure](#code-structure)
-5. [Controls](#controls)
-6. [Customization](#customization)
-7. [Troubleshooting](#troubleshooting)
-
----
+# Matplotlib Lunar Orbit Animation - User Guide
 
 ## Overview
 
-This tool creates a 3D animation of a spacecraft orbiting the Moon using Matplotlib. It runs in a native desktop window (no browser required) and allows full 3D rotation even during playback.
+3D animation of a spacecraft orbiting the Moon. Runs in a desktop window using Matplotlib.
 
-**Key Features:**
-- 3D lunar orbit visualization
-- Moon sphere with realistic dimensions
-- Spacecraft marker (orange dot)
-- Velocity direction arrow (red line)
-- Growing cyan trail showing path traveled
-- Live telemetry display
-- Keyboard speed controls (0.5x to 2.0x)
+Features:
+- Lunar orbit at 100 km altitude
+- 3D Moon sphere (1737 km radius)
+- Spacecraft marker with velocity arrow
+- Trail showing path traveled
+- Telemetry display
+- Speed controls via keyboard
 
 ---
 
 ## Installation
 
-### Requirements
-- Python 3.7 or newer
-- NumPy
-- Matplotlib
-
-### Install Command
-
 ```bash
 pip install numpy matplotlib
 ```
 
-### Verify Installation
-
-```bash
-python3 -c "import numpy; import matplotlib; print('Ready!')"
-```
+Requirements: Python 3.7+
 
 ---
 
-## Quick Start
+## Running the Script
 
 ```bash
-cd /Users/bigboi2/Desktop/2DPython
 python3 animate_path.py
 ```
 
-A window will open showing the Moon with an orbiting spacecraft. Press SPACE to start the animation.
+Press SPACE to start the animation.
+
+---
+
+## Controls
+
+### Keyboard
+- **SPACE** - Pause/Play
+- **1** - 0.5x speed (200ms/frame)
+- **2** - 1.0x speed (100ms/frame)
+- **3** - 1.5x speed (67ms/frame)
+- **4** - 2.0x speed (50ms/frame)
+
+### Mouse
+- **Left Drag** - Rotate view (works during playback)
+- **Scroll** - Zoom
+- **Right Drag** - Pan
 
 ---
 
 ## Code Structure
 
 ```
-animate_path.py
-├── Configuration (lines 7-11)
-├── generate_lunar_orbit_trajectory() (lines 13-68)
-├── 3D Plot Setup (lines 70-90)
-├── Moon Sphere Creation (lines 92-109)
-├── Animated Objects Setup (lines 111-137)
-├── Keyboard Controls (lines 139-178)
-├── Animation Functions (lines 180-236)
-└── Main Execution (lines 238-281)
+Configuration (lines 7-11)
+  - MOON_RADIUS_KM constant
+  
+Trajectory Generation (lines 17-65)
+  - generate_lunar_orbit_trajectory()
+  - Returns: x, y, z, vx, vy, vz, altitude, time
+  
+Plot Setup (lines 70-90)
+  - Create 3D axes
+  - Set axis limits
+  
+Moon Sphere (lines 96-103)
+  - Create mesh grid
+  - Plot as surface
+  
+Animated Objects (lines 115-137)
+  - Spacecraft marker
+  - Trail line
+  - Velocity arrow
+  - Telemetry text
+  
+Controls (lines 145-178)
+  - on_key_press() function
+  - Handles SPACE and 1-4 keys
+  
+Animation (lines 184-236)
+  - init() - Initialize objects
+  - animate() - Update each frame
+  
+Execution (lines 242-250)
+  - Create animation
+  - Display window
 ```
 
 ---
 
-## Controls
+## Orbital Mechanics
 
-### Keyboard Controls
+### Parameters
+- Orbit altitude: 100 km
+- Orbit radius: 1837.4 km (Moon radius + altitude)
+- Eccentricity: 0.05 (slightly elliptical)
+- Inclination: 15 degrees
+- Period: 2 hours
+- Orbits shown: 2 complete
 
-**SPACE** - Pause/Play toggle
-- Press once to pause
-- Press again to resume
+### Equations Used
 
-**1 Key** - 0.5x Speed (slow)
-- Good for detailed observation
-- 200ms per frame
+Position (elliptical orbit):
+```
+r = a(1 - e·cos(θ))
+x = r·cos(θ)
+y = r·sin(θ)·cos(i)
+z = r·sin(θ)·sin(i)
+```
 
-**2 Key** - 1.0x Speed (normal)
-- Default speed
-- 100ms per frame
+Where:
+- a = semi-major axis
+- e = eccentricity
+- θ = true anomaly
+- i = inclination
 
-**3 Key** - 1.5x Speed (fast)
-- 67ms per frame
-
-**4 Key** - 2.0x Speed (very fast)
-- Quick overview
-- 50ms per frame
-
-### Mouse Controls
-
-**Left Click + Drag** - Rotate view
-- Works DURING animation (unique to Matplotlib!)
-- Full 3D rotation
-
-**Scroll Wheel** - Zoom in/out
-
-**Right Click + Drag** - Pan view
+Velocity:
+```
+v = dr/dt
+```
+Calculated using np.gradient()
 
 ---
 
-## Code Explanation
+## Key Code Sections
 
-### Orbital Trajectory Generation (Lines 17-65)
+### Trajectory Generation (line 17)
 
 ```python
 def generate_lunar_orbit_trajectory(num_points=500):
+    time_seconds = np.linspace(0, 7200, num_points)
+    t_norm = np.linspace(0, 1, num_points)
+    
+    orbit_altitude = 100
+    orbit_radius = MOON_RADIUS_KM + orbit_altitude
+    
+    n_orbits = 2
+    theta = 2 * np.pi * n_orbits * t_norm
+    
+    eccentricity = 0.05
+    r = orbit_radius * (1 - eccentricity * np.cos(theta))
+    
+    x = r * np.cos(theta)
+    y = r * np.sin(theta)
+    
+    inclination = np.radians(15)
+    z = r * np.sin(theta) * np.sin(inclination)
+    y = r * np.sin(theta) * np.cos(inclination)
 ```
 
-**Creates realistic orbital data:**
-
-1. **Time Array** (Lines 28-29)
-   - 7200 seconds = 2 hours
-   - 500 evenly-spaced data points
-
-2. **Orbital Parameters** (Lines 31-41)
-   - Altitude: 100 km above Moon surface
-   - Orbit radius: 1737.4 + 100 = 1837.4 km
-   - Eccentricity: 0.05 (slightly elliptical)
-   - Number of orbits: 2 complete revolutions
-
-3. **Position Calculation** (Lines 43-50)
-   - Uses elliptical orbit equation: r = a(1 - e·cos(θ))
-   - Adds 15-degree inclination for 3D effect
-   - Converts polar to Cartesian coordinates
-
-4. **Perturbations** (Lines 52-55)
-   - Adds small random noise (~100 meters)
-   - Simulates gravitational irregularities
-   - Makes orbit more realistic
-
-5. **Velocity Calculation** (Lines 57-60)
-   - Computed from position derivatives
-   - `np.gradient()` calculates rate of change
-   - Used for velocity direction arrow
+Generates 500 points over 2 hours for 2 complete orbits.
 
 ---
 
-### Moon Sphere Creation (Lines 96-103)
+### Animation Update (line 195)
 
 ```python
-u = np.linspace(0, 2 * np.pi, 50)
-v = np.linspace(0, np.pi, 40)
-moon_x = MOON_RADIUS_KM * np.outer(np.cos(u), np.sin(v))
-moon_y = MOON_RADIUS_KM * np.outer(np.sin(u), np.sin(v))
-moon_z = MOON_RADIUS_KM * np.outer(np.ones(np.size(u)), np.cos(v))
+def animate(frame):
+    current_x = x[frame]
+    current_y = y[frame]
+    current_z = z[frame]
+    
+    # Update spacecraft
+    spacecraft.set_data([current_x], [current_y])
+    spacecraft.set_3d_properties([current_z])
+    
+    # Update trail
+    trail_x.append(current_x)
+    trail_y.append(current_y)
+    trail_z.append(current_z)
+    trail_line.set_data(trail_x, trail_y)
+    trail_line.set_3d_properties(trail_z)
+    
+    # Update velocity arrow
+    vel_mag = np.sqrt(vx[frame]**2 + vy[frame]**2 + vz[frame]**2)
+    if vel_mag > 0:
+        arrow_length = 300
+        dir_x = vx[frame] / vel_mag * arrow_length
+        dir_y = vy[frame] / vel_mag * arrow_length
+        dir_z = vz[frame] / vel_mag * arrow_length
+        
+        velocity_arrow.set_data([current_x, current_x + dir_x], 
+                               [current_y, current_y + dir_y])
+        velocity_arrow.set_3d_properties([current_z, current_z + dir_z])
+    
+    # Update telemetry
+    info_text.set_text(
+        f'TELEMETRY\n'
+        f'Time: {time_elapsed[frame]:.1f} s\n'
+        f'Altitude: {altitude[frame]:.2f} km\n'
+        f'Frame: {frame+1}/{len(x)}'
+    )
 ```
 
-**What it does:**
-- Creates spherical mesh grid
-- `u`: Longitude (0 to 2π)
-- `v`: Latitude (0 to π)
-- `np.outer()`: Combines arrays for surface
-
-**Why 50x40:**
-- Smooth appearance
-- Fast rendering
-- Good balance
-
----
-
-### Animation Objects (Lines 115-137)
-
-**Spacecraft** (Lines 115-117)
-```python
-spacecraft, = ax.plot([], [], [], 'o', markersize=15, color='orange', 
-                     markeredgecolor='black', markeredgewidth=2)
-```
-- Orange circle with black outline
-- Size 15 (clearly visible)
-- Updates position each frame
-
-**Trail** (Lines 119-120)
-```python
-trail_line, = ax.plot([], [], [], linewidth=3, color='cyan', alpha=0.9)
-```
-- Cyan color (bright and visible)
-- Width 3 pixels
-- Builds up during animation
-
-**Velocity Arrow** (Lines 122-123)
-```python
-velocity_arrow, = ax.plot([], [], [], 'r-', linewidth=3)
-```
-- Red line showing direction
-- Extends 300 km from spacecraft
-- Updates direction each frame
-
-**Telemetry Box** (Lines 125-129)
-```python
-info_text = ax.text2D(0.02, 0.98, '', transform=ax.transAxes, 
-                     fontsize=10, verticalalignment='top',
-                     bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.9),
-                     family='monospace')
-```
-- Top-left corner position
-- Monospace font for alignment
-- Wheat-colored background
-
----
-
-### Animation Update Function (Lines 195-236)
-
-**Each frame updates:**
-
-1. **Spacecraft Position** (Lines 198-204)
-   - Moves to current orbital position
-
-2. **Trail** (Lines 206-211)
-   - Appends current position to trail lists
-   - Trail grows from start to current position
-
-3. **Velocity Arrow** (Lines 213-225)
-   - Calculates velocity magnitude
-   - Normalizes to unit vector
-   - Scales to 300 km length
-   - Points in direction of motion
-
-4. **Telemetry** (Lines 227-234)
-   - Updates time, altitude, frame number
-   - Formatted as monospace text
-
----
-
-### Speed Control Implementation (Lines 158-176)
-
-```python
-elif event.key == '1':  # 0.5x speed
-    animation_interval = 200
-    anim.event_source.interval = animation_interval
-```
-
-**How it works:**
-- Detects key press (1, 2, 3, or 4)
-- Changes `animation_interval` variable
-- Updates `anim.event_source.interval` in real-time
-- Animation immediately switches to new speed
-
-**No need to restart animation!**
+Called once per frame. Updates all animated elements.
 
 ---
 
 ## Customization
 
-### Change Orbit Altitude
+### Orbit Parameters
 
+Change altitude:
 ```python
-orbit_altitude = 200  # 200 km instead of 100 km
+orbit_altitude = 200  # km
 ```
 
-### Change Number of Orbits
-
+Change number of orbits:
 ```python
-n_orbits = 3  # 3 orbits instead of 2
+n_orbits = 3
 ```
 
-### Change Mission Duration
-
+Change inclination:
 ```python
-time_seconds = np.linspace(0, 14400, num_points)  # 4 hours instead of 2
+inclination = np.radians(30)  # degrees
 ```
 
-### Change Data Points (Smoothness)
-
+Change eccentricity:
 ```python
-x, y, z, vx, vy, vz, altitude, time_elapsed = generate_lunar_orbit_trajectory(1000)
-```
-More points = smoother but slower
-
-### Change Spacecraft Color
-
-```python
-spacecraft, = ax.plot([], [], [], 'o', markersize=15, color='red', ...)
+eccentricity = 0.1  # more elliptical
 ```
 
-### Change Trail Color
+### Visual Elements
 
+Spacecraft size:
 ```python
-trail_line, = ax.plot([], [], [], linewidth=3, color='yellow', ...)
+markersize=20  # bigger
 ```
 
-### Change Velocity Arrow Length
-
+Trail thickness:
 ```python
-arrow_length = 500  # 500 km instead of 300 km
+linewidth=5  # thicker
 ```
 
-### Make Moon Transparent
-
+Velocity arrow length:
 ```python
-ax.plot_surface(moon_x, moon_y, moon_z, color='gray', alpha=0.3, shade=True)
+arrow_length = 500  # longer
 ```
-Lower alpha = more transparent
 
-### Add Green-to-Red Gradient on Trail
-
-Currently trail is solid cyan. To add gradient like Plotly version:
-
+Moon transparency:
 ```python
-# In animate function, instead of solid color:
-from matplotlib.collections import Line3DCollection
+alpha=0.4  # more transparent
+```
 
-segments = np.array([[trail_x[i:i+2], trail_y[i:i+2], trail_z[i:i+2]] 
-                     for i in range(len(trail_x)-1)])
-colors = plt.cm.RdYlGn_r(np.linspace(0, 1, len(segments)))
-lc = Line3DCollection(segments, colors=colors, linewidths=3)
-ax.add_collection(lc)
+### Animation Speed
+
+Change data points:
+```python
+num_points=250  # fewer = faster
+```
+
+Change default speed:
+```python
+interval=150  # slower default
+```
+
+Add new speed preset:
+```python
+elif event.key == '5':
+    animation_interval = 25
+    anim.event_source.interval = 25
 ```
 
 ---
 
 ## Troubleshooting
 
-### Problem: Window doesn't open
+### Window doesn't open
+- Install matplotlib: `pip install matplotlib`
+- Check for headless environment
+- Try: `export MPLBACKEND=TkAgg`
 
-**Solution:**
-- Make sure matplotlib is installed
-- Check if running in SSH/headless environment
-- Try: `export MPLBACKEND=TkAgg` before running
+### Animation is slow
+- Reduce points: `num_points=250`
+- Simplify Moon: Use 30x20 grid instead of 50x40
+- Remove velocity arrow (comment out lines 122-123, 213-225)
 
-### Problem: Animation is choppy
+### Speed keys don't work
+- Click window to give it focus
+- Check backend supports key events
+- Try different backend
 
-**Solutions:**
-1. Reduce data points:
-   ```python
-   generate_lunar_orbit_trajectory(num_points=200)
-   ```
-
-2. Increase interval (slower but smoother):
-   ```python
-   interval=150
-   ```
-
-3. Disable blitting:
-   ```python
-   blit=False
-   ```
-
-### Problem: Moon doesn't show
-
-**Check:**
-- Make sure using 3D projection: `projection='3d'`
-- Verify `from mpl_toolkits.mplot3d import Axes3D` is imported
-- Check axis limits include Moon radius
-
-### Problem: Speed keys don't work
-
-**Solution:**
-- Click on the plot window to give it focus
-- Some backends don't support key events well
-- Try different backend: `matplotlib.use('TkAgg')`
-
-### Problem: Can't rotate during animation
-
-**This should work in Matplotlib!**
-
-If it doesn't:
-- Click window to ensure focus
-- Try different matplotlib backend
+### Can't rotate during playback
+This should work. If not:
 - Update matplotlib: `pip install --upgrade matplotlib`
+- Try different backend
 
-### Problem: Trail doesn't show
-
-**Check:**
-- Trail starts empty, builds during animation
-- Press SPACE to start animation
-- Verify trail_line is being updated in animate()
-
-### Problem: Warnings about divide by zero
-
-**These are harmless** - Matplotlib 3D sphere rendering quirks
-- Doesn't affect functionality
-- Can be ignored
-- Or suppress with: `import warnings; warnings.filterwarnings('ignore')`
+### Divide by zero warnings
+- Harmless matplotlib 3D rendering warnings
+- Ignore or suppress: `warnings.filterwarnings('ignore')`
 
 ---
 
-## Advantages vs Plotly Version
+## Matplotlib vs Plotly
 
-**Matplotlib Pros:**
-- Native window (no browser)
-- Can rotate DURING playback
-- Simpler installation
-- Works offline
-- Faster startup
+### Use Matplotlib when:
+- You want a desktop window
+- You need to rotate during playback
+- You prefer keyboard controls
+- You want simpler setup
 
-**Matplotlib Cons:**
-- Less polished visuals
-- No clickable buttons
-- Can't save as interactive HTML
-- Keyboard-only speed control
-
-**When to use Matplotlib:**
-- Quick analysis
-- Don't want browser
-- Need to rotate while animating
-- Simpler environment
-
-**When to use Plotly:**
-- Sharing with others
-- Better visuals
-- Web deployment
-- Prefer mouse controls
+### Use Plotly when:
+- You want better visuals
+- You need to share interactive HTML
+- You prefer mouse/button controls
+- You want a slider for scrubbing
 
 ---
 
-## Performance Tips
+## Performance Notes
 
-### For Slow Computers
+500 points with 3D rendering:
+- Typical FPS: 10-20
+- Memory usage: ~50-100 MB
+- Can handle 1000+ points on modern hardware
 
-1. Reduce points:
-   ```python
-   num_points=250
-   ```
-
-2. Simplify Moon:
-   ```python
-   u = np.linspace(0, 2 * np.pi, 30)
-   v = np.linspace(0, np.pi, 20)
-   ```
-
-3. Remove velocity arrow:
-   - Comment out lines 122-123 and 213-225
-
-4. Thinner trail:
-   ```python
-   linewidth=1
-   ```
+Optimizations applied:
+- `blit=True` for faster redraw
+- Efficient gradient calculations
+- Minimal object recreation
 
 ---
 
-## Summary
+## Technical Details
 
-This Matplotlib version provides a fast, interactive 3D orbital visualization with the unique ability to rotate the view during animation playback. It uses standard orbital mechanics equations and realistic Moon dimensions to create an educational and visually accurate representation of lunar orbital flight.
+### Coordinate System
+- Origin at Moon center
+- Units in kilometers
+- ECI (inertial) reference frame
 
-Perfect for local analysis, presentations, and situations where browser-based tools aren't ideal.
+### Time Standard
+- J2000 epoch (seconds since Jan 1, 2000 12:00 UTC)
+- Variable name: j2000UtcTime_s
 
+### Velocity Calculation
+```python
+vx = np.gradient(x, time_seconds)
+```
+Uses numpy gradient (central differences for interior points).
+
+### Altitude Calculation
+```python
+altitude = np.sqrt(x**2 + y**2 + z**2) - MOON_RADIUS_KM
+```
+Radial distance from Moon center minus Moon radius.
