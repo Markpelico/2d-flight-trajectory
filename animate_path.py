@@ -41,6 +41,12 @@ def generate_lunar_orbit_trajectory(num_points=500):
     eccentricity = 0.05
     r = orbit_radius * (1 - eccentricity * np.cos(theta))
     
+    # Add altitude decay/climb for each orbit (prevents overlap)
+    # Each orbit is slightly higher/lower than previous
+    orbit_number = np.floor(t_norm * n_orbits)
+    altitude_variation = 20 * np.sin(np.pi * orbit_number)  # +/- 20 km per orbit
+    r = r + altitude_variation
+    
     # Position in orbital plane
     x = r * np.cos(theta)
     y = r * np.sin(theta)
@@ -155,28 +161,51 @@ trail_z = []
 animation_interval = 100  # milliseconds per frame
 
 # ============================================================================
-# CLICK TO SHOW COORDINATES
+# HOVER TO SHOW COORDINATES (ON PLOT)
 # ============================================================================
 
-# Add invisible scatter points for click detection
-clickable_points = ax.scatter(x, y, z, s=50, alpha=0, picker=5)
+# Add invisible scatter points for hover detection
+clickable_points = ax.scatter(x, y, z, s=50, alpha=0, picker=True)
 
-def on_click(event):
-    """Show x,y,z coordinates when clicking near trajectory"""
-    if event.ind is not None and len(event.ind) > 0:
-        # Get closest point from click
-        idx = event.ind[0]
-        
-        text = f"Point {idx+1}/{len(x)}\n"
-        text += f"X: {x[idx]:.2f} km\n"
-        text += f"Y: {y[idx]:.2f} km\n"
-        text += f"Z: {z[idx]:.2f} km\n"
-        text += f"Time: {time_elapsed[idx]:.1f} s\n"
-        text += f"Altitude: {altitude[idx]:.2f} km"
-        
-        print("\n" + text.replace('<br>', '\n'))
+# Hover annotation box
+hover_annot = ax.text2D(0, 0, '', transform=None,
+                       bbox=dict(boxstyle='round', facecolor='yellow', 
+                                edgecolor='black', linewidth=2, alpha=0.95),
+                       fontsize=9, family='monospace', visible=False, zorder=100)
 
-fig.canvas.mpl_connect('pick_event', on_click)
+def on_hover(event):
+    """Show data popup when hovering near orbit"""
+    if event.inaxes == ax:
+        # Sample points for performance
+        for i in range(0, len(x), 5):
+            try:
+                # Project 3D point to 2D screen
+                proj_2d = ax.transData.transform([x[i], y[i], z[i]])
+                mouse_pos = np.array([event.x, event.y])
+                dist = np.linalg.norm(proj_2d - mouse_pos)
+                
+                if dist < 25:  # Within 25 pixels
+                    text = f"T+{time_elapsed[i]:.0f}s\n"
+                    text += f"Alt: {altitude[i]:.1f}km\n"
+                    text += f"X: {x[i]:.0f}km\n"
+                    text += f"Y: {y[i]:.0f}km\n"
+                    text += f"Z: {z[i]:.0f}km"
+                    
+                    # Position annotation near cursor
+                    hover_annot.set_position((event.xdata, event.ydata))
+                    hover_annot.set_text(text)
+                    hover_annot.set_visible(True)
+                    fig.canvas.draw_idle()
+                    return
+            except:
+                pass
+        
+        # Hide if not near any point
+        if hover_annot.get_visible():
+            hover_annot.set_visible(False)
+            fig.canvas.draw_idle()
+
+fig.canvas.mpl_connect('motion_notify_event', on_hover)
 
 # ============================================================================
 # MOUSE WHEEL ZOOM
@@ -387,8 +416,9 @@ anim = animation.FuncAnimation(
     init_func=init,
     frames=len(x),
     interval=animation_interval,
-    blit=True,
-    repeat=True
+    blit=False,  # Set to False to prevent play/pause issues with 3D
+    repeat=True,
+    cache_frame_data=False
 )
 
 plt.tight_layout()
@@ -398,6 +428,5 @@ print("Controls: SPACE=Pause/Play | 1-4=Speed | +/-=Zoom | R=Reset | Scroll=Zoom
 
 plt.show()
 
-# Optional: Save animation
-# anim.save('lunar_orbit.gif', writer='pillow', fps=10)
+
 
