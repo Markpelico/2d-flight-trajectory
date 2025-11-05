@@ -137,6 +137,48 @@ trail_z = []
 animation_interval = 100  # milliseconds per frame
 
 # ============================================================================
+# HOVER FUNCTIONALITY
+# ============================================================================
+
+# Create annotation for hover display
+annot = ax.text2D(0.5, 0.5, '', transform=ax.transAxes,
+                 bbox=dict(boxstyle='round', facecolor='lightyellow', edgecolor='black', linewidth=2),
+                 fontsize=9, family='monospace', visible=False)
+
+def on_hover(event):
+    """Show x,y,z coordinates when hovering near trajectory points"""
+    if event.inaxes == ax:
+        # Check if mouse is near any trajectory point
+        if event.xdata is not None and event.ydata is not None:
+            for i in range(len(x)):
+                # Calculate 2D distance in plot coordinates
+                dx = event.xdata - x[i]
+                dy = event.ydata - y[i]
+                distance = np.sqrt(dx**2 + dy**2)
+                
+                # If close to a point (within threshold)
+                threshold = max_range * 0.05  # 5% of plot range
+                if distance < threshold:
+                    # Show annotation with position data
+                    text = f"Point {i+1}/{len(x)}\n"
+                    text += f"X: {x[i]:.2f} km\n"
+                    text += f"Y: {y[i]:.2f} km\n"
+                    text += f"Z: {z[i]:.2f} km\n"
+                    text += f"Time: {time_elapsed[i]:.1f} s"
+                    
+                    annot.set_text(text)
+                    annot.set_visible(True)
+                    fig.canvas.draw_idle()
+                    return
+        
+        # Hide annotation if not near any point
+        if annot.get_visible():
+            annot.set_visible(False)
+            fig.canvas.draw_idle()
+
+fig.canvas.mpl_connect('motion_notify_event', on_hover)
+
+# ============================================================================
 # KEYBOARD CONTROLS - SPEED AND PAUSE
 # ============================================================================
 
