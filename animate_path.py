@@ -41,10 +41,11 @@ def generate_lunar_orbit_trajectory(num_points=500):
     eccentricity = 0.05
     r = orbit_radius * (1 - eccentricity * np.cos(theta))
     
-    # Add altitude decay/climb for each orbit (prevents overlap)
-    # Each orbit is slightly higher/lower than previous
-    orbit_number = np.floor(t_norm * n_orbits)
-    altitude_variation = 20 * np.sin(np.pi * orbit_number)  # +/- 20 km per orbit
+    # Add significant altitude variation for each orbit (prevents overlap)
+    # Create clear spiral effect - altitude increases throughout mission
+    altitude_variation = 100 * t_norm  # Increases from 0 to 100 km
+    # Also add sinusoidal variation per orbit
+    altitude_variation += 30 * np.sin(n_orbits * theta)
     r = r + altitude_variation
     
     # Position in orbital plane
@@ -100,14 +101,15 @@ ax.set_zlim(mid_z - max_range, mid_z + max_range)
 # ADD MOON SPHERE
 # ============================================================================
 
-# Create Moon sphere
-u = np.linspace(0, 2 * np.pi, 50)
-v = np.linspace(0, np.pi, 40)
+# Create Moon sphere (higher resolution for rounder appearance)
+u = np.linspace(0, 2 * np.pi, 80)
+v = np.linspace(0, np.pi, 60)
 moon_x = MOON_RADIUS_KM * np.outer(np.cos(u), np.sin(v))
 moon_y = MOON_RADIUS_KM * np.outer(np.sin(u), np.sin(v))
 moon_z = MOON_RADIUS_KM * np.outer(np.ones(np.size(u)), np.cos(v))
 
-ax.plot_surface(moon_x, moon_y, moon_z, color='gray', alpha=0.6, shade=True)
+ax.plot_surface(moon_x, moon_y, moon_z, color='#808080', alpha=0.5, shade=True, 
+               edgecolor='none', linewidth=0)
 
 # Add start and end markers
 ax.scatter(x[0], y[0], z[0], c='green', s=100, marker='o', label='Start', edgecolors='darkgreen', linewidths=2)
@@ -118,39 +120,45 @@ ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
 # Add controls text on plot
 controls_text = """CONTROLS:
 SPACE: Pause/Play
-1-4: Speed (0.5x to 2.0x)
-+/-: Zoom In/Out
-R: Reset View
-Scroll: Zoom
-Drag: Rotate
-Click: Show Data"""
+1-4: Speed
++/-: Zoom
+R: Reset
+Click: Info"""
 
 ax.text2D(0.02, 0.02, controls_text, transform=ax.transAxes,
          fontsize=8, verticalalignment='bottom',
-         bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8),
+         bbox=dict(boxstyle='round', facecolor='white', 
+                  edgecolor='gray', linewidth=1, alpha=0.9),
          family='monospace')
 
 # ============================================================================
 # CREATE ANIMATED OBJECTS
 # ============================================================================
 
-# Spacecraft marker (orange cone-like appearance)
-spacecraft, = ax.plot([], [], [], 'o', markersize=18, color='orange', 
-                     markeredgecolor='black', markeredgewidth=2.5, zorder=10)
+# Spacecraft marker
+spacecraft, = ax.plot([], [], [], 'o', markersize=12, color='black', 
+                     markeredgecolor='gray', markeredgewidth=1.5, zorder=10)
 
-# Trail - will use Line3DCollection for gradient (like Plotly)
+# Trail with gradient
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
-trail_collection = None  # Created during animation
+trail_collection = None
 
-# Velocity direction arrow (red, thick)
-velocity_arrow, = ax.plot([], [], [], 'r-', linewidth=4, zorder=9)
+# Velocity direction arrow
+velocity_arrow, = ax.plot([], [], [], '-', linewidth=2, color='#333333', zorder=9)
 
-# Telemetry text box (matches Plotly style)
+# Telemetry display
 info_text = ax.text2D(0.02, 0.98, '', transform=ax.transAxes, 
-                     fontsize=10, verticalalignment='top',
+                     fontsize=9, verticalalignment='top',
                      bbox=dict(boxstyle='round', facecolor='white', 
-                              edgecolor='black', linewidth=2, alpha=0.95),
+                              edgecolor='gray', linewidth=1, alpha=0.9),
                      family='monospace')
+
+# Speed display
+speed_text = ax.text2D(0.98, 0.02, 'Speed: 1.0x', transform=ax.transAxes,
+                      fontsize=9, verticalalignment='bottom', horizontalalignment='right',
+                      bbox=dict(boxstyle='round', facecolor='white', 
+                               edgecolor='gray', linewidth=1, alpha=0.9),
+                      family='monospace')
 
 # Store trail data
 trail_x = []
@@ -161,51 +169,43 @@ trail_z = []
 animation_interval = 100  # milliseconds per frame
 
 # ============================================================================
-# HOVER TO SHOW COORDINATES (ON PLOT)
+# CLICK TO SHOW COORDINATES (RELIABLE METHOD)
 # ============================================================================
 
-# Add invisible scatter points for hover detection
-clickable_points = ax.scatter(x, y, z, s=50, alpha=0, picker=True)
+# Make trajectory points clickable
+trajectory_scatter = ax.scatter(x, y, z, s=1, alpha=0.01, picker=True, pickradius=15)
 
-# Hover annotation box
-hover_annot = ax.text2D(0, 0, '', transform=None,
-                       bbox=dict(boxstyle='round', facecolor='yellow', 
-                                edgecolor='black', linewidth=2, alpha=0.95),
-                       fontsize=9, family='monospace', visible=False, zorder=100)
+# Annotation for click
+click_annot = ax.text2D(0.5, 0.85, '', transform=ax.transAxes,
+                       bbox=dict(boxstyle='round', facecolor='white', 
+                                edgecolor='gray', linewidth=1, alpha=0.95),
+                       fontsize=9, family='monospace', visible=False,
+                       ha='center', va='top')
 
-def on_hover(event):
-    """Show data popup when hovering near orbit"""
-    if event.inaxes == ax:
-        # Sample points for performance
-        for i in range(0, len(x), 5):
-            try:
-                # Project 3D point to 2D screen
-                proj_2d = ax.transData.transform([x[i], y[i], z[i]])
-                mouse_pos = np.array([event.x, event.y])
-                dist = np.linalg.norm(proj_2d - mouse_pos)
-                
-                if dist < 25:  # Within 25 pixels
-                    text = f"T+{time_elapsed[i]:.0f}s\n"
-                    text += f"Alt: {altitude[i]:.1f}km\n"
-                    text += f"X: {x[i]:.0f}km\n"
-                    text += f"Y: {y[i]:.0f}km\n"
-                    text += f"Z: {z[i]:.0f}km"
-                    
-                    # Position annotation near cursor
-                    hover_annot.set_position((event.xdata, event.ydata))
-                    hover_annot.set_text(text)
-                    hover_annot.set_visible(True)
-                    fig.canvas.draw_idle()
-                    return
-            except:
-                pass
+def on_pick(event):
+    """Show data when clicking on trajectory"""
+    if event.ind is not None and len(event.ind) > 0:
+        idx = event.ind[0]
         
-        # Hide if not near any point
-        if hover_annot.get_visible():
-            hover_annot.set_visible(False)
+        text = f"Point {idx+1}/{len(x)}\n"
+        text += f"Time: {time_elapsed[idx]:.1f} s\n"
+        text += f"Altitude: {altitude[idx]:.1f} km\n"
+        text += f"X: {x[idx]:.1f} km\n"
+        text += f"Y: {y[idx]:.1f} km\n"
+        text += f"Z: {z[idx]:.1f} km"
+        
+        click_annot.set_text(text)
+        click_annot.set_visible(True)
+        fig.canvas.draw_idle()
+        
+        # Auto-hide after 3 seconds
+        def hide_annot():
+            click_annot.set_visible(False)
             fig.canvas.draw_idle()
+        
+        fig.canvas.get_tk_widget().after(3000, hide_annot) if hasattr(fig.canvas, 'get_tk_widget') else None
 
-fig.canvas.mpl_connect('motion_notify_event', on_hover)
+fig.canvas.mpl_connect('pick_event', on_pick)
 
 # ============================================================================
 # MOUSE WHEEL ZOOM
@@ -266,18 +266,26 @@ def on_key_press(event):
     elif event.key == '1':
         animation_interval = 200
         anim.event_source.interval = animation_interval
+        speed_text.set_text('Speed: 0.5x')
+        fig.canvas.draw_idle()
     
     elif event.key == '2':
         animation_interval = 100
         anim.event_source.interval = animation_interval
+        speed_text.set_text('Speed: 1.0x')
+        fig.canvas.draw_idle()
     
     elif event.key == '3':
         animation_interval = 67
         anim.event_source.interval = animation_interval
+        speed_text.set_text('Speed: 1.5x')
+        fig.canvas.draw_idle()
     
     elif event.key == '4':
         animation_interval = 50
         anim.event_source.interval = animation_interval
+        speed_text.set_text('Speed: 2.0x')
+        fig.canvas.draw_idle()
     
     elif event.key == '+' or event.key == '=':
         # Zoom in
@@ -382,12 +390,10 @@ def animate(frame):
         trail_collection = Line3DCollection(segments, colors=colors, linewidths=4, zorder=5)
         ax.add_collection3d(trail_collection)
     
-    # Update velocity direction arrow
-    # Arrow extends from spacecraft in direction of velocity
+    # Update velocity direction arrow (points where spacecraft is heading)
     vel_mag = np.sqrt(vx[frame]**2 + vy[frame]**2 + vz[frame]**2)
     if vel_mag > 0:
-        # Normalize and scale
-        arrow_length = 300  # km
+        arrow_length = 400  # km (longer for visibility)
         dir_x = vx[frame] / vel_mag * arrow_length
         dir_y = vy[frame] / vel_mag * arrow_length
         dir_z = vz[frame] / vel_mag * arrow_length
@@ -395,6 +401,9 @@ def animate(frame):
         velocity_arrow.set_data([current_x, current_x + dir_x], 
                                [current_y, current_y + dir_y])
         velocity_arrow.set_3d_properties([current_z, current_z + dir_z])
+    else:
+        velocity_arrow.set_data([], [])
+        velocity_arrow.set_3d_properties([])
     
     # Update telemetry display (matches Plotly format)
     info_text.set_text(
@@ -424,7 +433,7 @@ anim = animation.FuncAnimation(
 plt.tight_layout()
 
 print("Loading...")
-print("Controls: SPACE=Pause/Play | 1-4=Speed | +/-=Zoom | R=Reset | Scroll=Zoom | Drag=Rotate | Click=Info")
+print("Controls: SPACE=Pause/Play | 1-4=Speed | +/-=Zoom | R=Reset | Click Orbit=Show Data")
 
 plt.show()
 
