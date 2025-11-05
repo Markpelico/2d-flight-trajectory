@@ -1,346 +1,196 @@
-# Matplotlib Lunar Orbit Animation - User Guide
-
-## Overview
-
-3D animation of a spacecraft orbiting the Moon. Runs in a desktop window using Matplotlib.
-
-Features:
-- Lunar orbit at 100 km altitude
-- 3D Moon sphere (1737 km radius)
-- Spacecraft marker with velocity arrow
-- Trail showing path traveled
-- Telemetry display
-- Speed controls via keyboard
-
----
-
-## Installation
-
-```bash
-pip install numpy matplotlib
-```
-
-Requirements: Python 3.7+
-
----
-
-## Running the Script
-
-```bash
-python3 animate_path.py
-```
-
-Press SPACE to start the animation.
-
----
-
-## Controls
-
-### Keyboard
-- **SPACE** - Pause/Play
-- **1** - 0.5x speed (200ms/frame)
-- **2** - 1.0x speed (100ms/frame)
-- **3** - 1.5x speed (67ms/frame)
-- **4** - 2.0x speed (50ms/frame)
-
-### Mouse
-- **Left Drag** - Rotate view (works during playback)
-- **Scroll** - Zoom
-- **Right Drag** - Pan
-
----
-
-## Code Structure
-
-```
-Configuration (lines 7-11)
-  - MOON_RADIUS_KM constant
-  
-Trajectory Generation (lines 17-65)
-  - generate_lunar_orbit_trajectory()
-  - Returns: x, y, z, vx, vy, vz, altitude, time
-  
-Plot Setup (lines 70-90)
-  - Create 3D axes
-  - Set axis limits
-  
-Moon Sphere (lines 96-103)
-  - Create mesh grid
-  - Plot as surface
-  
-Animated Objects (lines 115-137)
-  - Spacecraft marker
-  - Trail line
-  - Velocity arrow
-  - Telemetry text
-  
-Controls (lines 145-178)
-  - on_key_press() function
-  - Handles SPACE and 1-4 keys
-  
-Animation (lines 184-236)
-  - init() - Initialize objects
-  - animate() - Update each frame
-  
-Execution (lines 242-250)
-  - Create animation
-  - Display window
-```
-
----
-
-## Orbital Mechanics
-
-### Parameters
-- Orbit altitude: 100 km
-- Orbit radius: 1837.4 km (Moon radius + altitude)
-- Eccentricity: 0.05 (slightly elliptical)
-- Inclination: 15 degrees
-- Period: 2 hours
-- Orbits shown: 2 complete
-
-### Equations Used
-
-Position (elliptical orbit):
-```
-r = a(1 - e·cos(θ))
-x = r·cos(θ)
-y = r·sin(θ)·cos(i)
-z = r·sin(θ)·sin(i)
-```
-
-Where:
-- a = semi-major axis
-- e = eccentricity
-- θ = true anomaly
-- i = inclination
-
-Velocity:
-```
-v = dr/dt
-```
-Calculated using np.gradient()
-
----
-
-## Key Code Sections
-
-### Trajectory Generation (line 17)
-
-```python
-def generate_lunar_orbit_trajectory(num_points=500):
-    time_seconds = np.linspace(0, 7200, num_points)
-    t_norm = np.linspace(0, 1, num_points)
-    
-    orbit_altitude = 100
-    orbit_radius = MOON_RADIUS_KM + orbit_altitude
-    
-    n_orbits = 2
-    theta = 2 * np.pi * n_orbits * t_norm
-    
-    eccentricity = 0.05
-    r = orbit_radius * (1 - eccentricity * np.cos(theta))
-    
-    x = r * np.cos(theta)
-    y = r * np.sin(theta)
-    
-    inclination = np.radians(15)
-    z = r * np.sin(theta) * np.sin(inclination)
-    y = r * np.sin(theta) * np.cos(inclination)
-```
-
-Generates 500 points over 2 hours for 2 complete orbits.
-
----
-
-### Animation Update (line 195)
-
-```python
-def animate(frame):
-    current_x = x[frame]
-    current_y = y[frame]
-    current_z = z[frame]
-    
-    # Update spacecraft
-    spacecraft.set_data([current_x], [current_y])
-    spacecraft.set_3d_properties([current_z])
-    
-    # Update trail
-    trail_x.append(current_x)
-    trail_y.append(current_y)
-    trail_z.append(current_z)
-    trail_line.set_data(trail_x, trail_y)
-    trail_line.set_3d_properties(trail_z)
-    
-    # Update velocity arrow
-    vel_mag = np.sqrt(vx[frame]**2 + vy[frame]**2 + vz[frame]**2)
-    if vel_mag > 0:
-        arrow_length = 300
-        dir_x = vx[frame] / vel_mag * arrow_length
-        dir_y = vy[frame] / vel_mag * arrow_length
-        dir_z = vz[frame] / vel_mag * arrow_length
-        
-        velocity_arrow.set_data([current_x, current_x + dir_x], 
-                               [current_y, current_y + dir_y])
-        velocity_arrow.set_3d_properties([current_z, current_z + dir_z])
-    
-    # Update telemetry
-    info_text.set_text(
-        f'TELEMETRY\n'
-        f'Time: {time_elapsed[frame]:.1f} s\n'
-        f'Altitude: {altitude[frame]:.2f} km\n'
-        f'Frame: {frame+1}/{len(x)}'
-    )
-```
-
-Called once per frame. Updates all animated elements.
-
----
-
-## Customization
-
-### Orbit Parameters
-
-Change altitude:
-```python
-orbit_altitude = 200  # km
-```
-
-Change number of orbits:
-```python
-n_orbits = 3
-```
-
-Change inclination:
-```python
-inclination = np.radians(30)  # degrees
-```
-
-Change eccentricity:
-```python
-eccentricity = 0.1  # more elliptical
-```
-
-### Visual Elements
-
-Spacecraft size:
-```python
-markersize=20  # bigger
-```
-
-Trail thickness:
-```python
-linewidth=5  # thicker
-```
-
-Velocity arrow length:
-```python
-arrow_length = 500  # longer
-```
-
-Moon transparency:
-```python
-alpha=0.4  # more transparent
-```
-
-### Animation Speed
-
-Change data points:
-```python
-num_points=250  # fewer = faster
-```
-
-Change default speed:
-```python
-interval=150  # slower default
-```
-
-Add new speed preset:
-```python
-elif event.key == '5':
-    animation_interval = 25
-    anim.event_source.interval = 25
-```
-
----
-
-## Troubleshooting
-
-### Window doesn't open
-- Install matplotlib: `pip install matplotlib`
-- Check for headless environment
-- Try: `export MPLBACKEND=TkAgg`
-
-### Animation is slow
-- Reduce points: `num_points=250`
-- Simplify Moon: Use 30x20 grid instead of 50x40
-- Remove velocity arrow (comment out lines 122-123, 213-225)
-
-### Speed keys don't work
-- Click window to give it focus
-- Check backend supports key events
-- Try different backend
-
-### Can't rotate during playback
-This should work. If not:
-- Update matplotlib: `pip install --upgrade matplotlib`
-- Try different backend
-
-### Divide by zero warnings
-- Harmless matplotlib 3D rendering warnings
-- Ignore or suppress: `warnings.filterwarnings('ignore')`
-
----
-
-## Matplotlib vs Plotly
-
-### Use Matplotlib when:
-- You want a desktop window
-- You need to rotate during playback
-- You prefer keyboard controls
-- You want simpler setup
-
-### Use Plotly when:
-- You want better visuals
-- You need to share interactive HTML
-- You prefer mouse/button controls
-- You want a slider for scrubbing
-
----
-
-## Performance Notes
-
-500 points with 3D rendering:
-- Typical FPS: 10-20
-- Memory usage: ~50-100 MB
-- Can handle 1000+ points on modern hardware
-
-Optimizations applied:
-- `blit=True` for faster redraw
-- Efficient gradient calculations
-- Minimal object recreation
-
----
-
-## Technical Details
-
-### Coordinate System
-- Origin at Moon center
-- Units in kilometers
-- ECI (inertial) reference frame
-
-### Time Standard
-- J2000 epoch (seconds since Jan 1, 2000 12:00 UTC)
-- Variable name: j2000UtcTime_s
-
-### Velocity Calculation
-```python
-vx = np.gradient(x, time_seconds)
-```
-Uses numpy gradient (central differences for interior points).
-
-### Altitude Calculation
-```python
-altitude = np.sqrt(x**2 + y**2 + z**2) - MOON_RADIUS_KM
-```
-Radial distance from Moon center minus Moon radius.
+Title: Lunar Orbit Animation Tool - Matplotlib Version
+
+Author: Refactored trajectory visualization tool
+
+Date Created: November 2025
+
+Last Updated: November 2025
+
+Description: 3D spacecraft orbital trajectory animation using Matplotlib. Visualizes lunar orbit with realistic orbital mechanics. Runs in native desktop window with keyboard controls for playback speed. Allows 3D rotation during playback. Intended for trajectory analysis, educational purposes, and mission planning visualization.
+
+##### USER GUIDE #####
+
+Library Dependencies:
+
+	* python3
+	* numpy
+	* matplotlib
+
+Installation:
+
+	pip install numpy matplotlib
+
+Quick Start:
+
+	1) Run the script: python3 animate_path.py
+
+	2) A window opens showing the Moon (gray sphere) and orbital path
+
+	3) Press SPACE to start animation
+
+	4) Use number keys 1-4 to adjust playback speed
+
+	5) Click and drag to rotate the 3D view (works during playback)
+
+Controls:
+
+	Keyboard:
+		SPACE - Pause/Play toggle
+		1 - 0.5x speed (slow, 200ms per frame)
+		2 - 1.0x speed (normal, 100ms per frame)
+		3 - 1.5x speed (fast, 67ms per frame)
+		4 - 2.0x speed (very fast, 50ms per frame)
+
+	Mouse:
+		Left Click + Drag - Rotate 3D view
+		Scroll Wheel - Zoom in/out
+		Right Click + Drag - Pan view
+
+Visual Elements:
+
+	* Gray sphere: Moon (radius = 1737.4 km)
+	* Orange dot: Spacecraft current position
+	* Cyan line: Trail showing path traveled
+	* Red line: Velocity direction vector (300 km length)
+	* Green dot: Orbit start position
+	* Red square: Orbit end position
+	* Text box: Telemetry (Time, Altitude, Frame number)
+
+##### CODE STRUCTURE #####
+
+Key Functions:
+
+	generate_lunar_orbit_trajectory(num_points=500)
+		- Generates orbital position and velocity data
+		- Returns: x, y, z, vx, vy, vz, altitude, time_elapsed
+		- Uses Keplerian orbital mechanics
+		- Adds realistic perturbations
+
+	init()
+		- Initializes animation objects to empty state
+		- Called once at animation start
+
+	animate(frame)
+		- Updates spacecraft position
+		- Grows trail
+		- Updates velocity arrow direction
+		- Updates telemetry display
+		- Called once per frame
+
+	on_key_press(event)
+		- Handles keyboard input
+		- Controls pause/play and speed adjustment
+
+Orbital Parameters:
+
+	* Altitude: 100 km above Moon surface
+	* Orbit radius: 1837.4 km
+	* Eccentricity: 0.05 (slightly elliptical)
+	* Inclination: 15 degrees
+	* Period: ~2 hours
+	* Number of orbits: 2 complete revolutions
+	* Data points: 500
+
+##### CUSTOMIZATION #####
+
+Modify Orbit Parameters (in generate_lunar_orbit_trajectory function):
+
+	orbit_altitude = 200  # Change to 200 km altitude
+	n_orbits = 3  # Show 3 complete orbits
+	num_points = 1000  # More points for smoother animation
+	eccentricity = 0.1  # More elliptical orbit
+
+Modify Visual Elements:
+
+	Spacecraft color (line 116):
+		color='red'
+	
+	Spacecraft size (line 116):
+		markersize=20
+	
+	Trail color (line 120):
+		color='yellow'
+	
+	Trail thickness (line 120):
+		linewidth=5
+	
+	Velocity arrow length (line 218):
+		arrow_length = 500
+	
+	Moon transparency (line 103):
+		alpha=0.4
+
+Modify Animation Speed:
+
+	Default interval (line 247):
+		interval=150  # Slower default speed
+	
+	Add new speed preset (in on_key_press function):
+		elif event.key == '5':
+			animation_interval = 25
+			anim.event_source.interval = 25
+
+##### KNOWN ISSUES #####
+
+Limitations:
+
+	* Divide by zero warnings during rendering - harmless, can be ignored
+	* Performance degrades with >1000 points on slower machines
+	* Some backends don't support keyboard events well
+	* 3D rotation can be slow on older hardware
+
+Troubleshooting:
+
+	Window doesn't open:
+		- Verify matplotlib installed correctly
+		- Check if running headless
+		- Try: export MPLBACKEND=TkAgg
+
+	Animation choppy:
+		- Reduce num_points to 250
+		- Increase interval value
+		- Set blit=False in FuncAnimation
+
+	Speed keys don't work:
+		- Click window to focus it
+		- Try different matplotlib backend
+
+##### TECHNICAL NOTES #####
+
+Coordinate System:
+	* Origin at Moon center
+	* Units: kilometers
+	* Inertial reference frame
+
+Time Format:
+	* J2000 standard (seconds since Jan 1, 2000 12:00 UTC)
+	* Variable name: j2000UtcTime_s
+
+Velocity Calculation:
+	* Computed using np.gradient() on position data
+	* Central differences method for interior points
+
+Altitude Calculation:
+	* Radial distance from Moon center minus Moon radius
+	* altitude = sqrt(x² + y² + z²) - MOON_RADIUS_KM
+
+##### COMPARISON TO PLOTLY VERSION #####
+
+Matplotlib Advantages:
+	* Native desktop window (no browser required)
+	* Can rotate view during playback
+	* Simpler installation
+	* Keyboard-only controls
+	* Faster startup
+
+Matplotlib Disadvantages:
+	* Less polished visuals
+	* No clickable buttons
+	* Cannot save as interactive HTML
+	* No scrubber slider
+
+Use Matplotlib when:
+	* Quick local analysis needed
+	* Browser not preferred
+	* Need to rotate during animation
+	* Simpler environment required
