@@ -1,178 +1,180 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
-from matplotlib.patches import FancyArrowPatch
+from matplotlib.patches import FancyArrowPatch, Circle
+from mpl_toolkits.mplot3d import Axes3D
 
 # ============================================================================
-# GENERATE REALISTIC ROCKET FLIGHT TRAJECTORY DATA
+# CONFIGURATION
 # ============================================================================
 
-def generate_rocket_trajectory(num_points=100):
+MOON_RADIUS_KM = 1737.4  # Actual moon radius in km
+
+# ============================================================================
+# GENERATE LUNAR ORBITAL TRAJECTORY DATA
+# ============================================================================
+
+def generate_lunar_orbit_trajectory(num_points=500):
     """
-    Generate a realistic 2D rocket flight path with:
-    - Launch phase (vertical ascent)
-    - Pitch-over maneuver (gradual turn)
-    - Gravity turn (arc following orbital mechanics)
-    - Coast/orbit insertion
+    Generate realistic 3D lunar orbit trajectory.
+    
+    Orbital mechanics:
+    - Orbit altitude: 100 km above moon surface
+    - Orbit period: 2 hours
+    - Number of orbits: 2
+    - Inclination: 15 degrees
     """
-    # Time array for the trajectory
-    t = np.linspace(0, 1, num_points)
+    # Time array - 2 hour mission
+    time_seconds = np.linspace(0, 7200, num_points)
+    t_norm = np.linspace(0, 1, num_points)
     
-    # Horizontal position (x): starts at 0, increases gradually then faster
-    # Simulates gaining horizontal velocity during ascent
-    x = 50 * t**2  # Parabolic increase in horizontal distance
+    # Orbital parameters
+    orbit_altitude = 100  # km above surface
+    orbit_radius = MOON_RADIUS_KM + orbit_altitude
     
-    # Vertical position (y): rapid initial climb, then levels off
-    # First stage: rapid climb, second stage: arc over
-    y = 100 * t - 50 * t**2  # Parabolic arc (like projectile motion)
+    # Complete 2 orbits
+    n_orbits = 2
+    theta = 2 * np.pi * n_orbits * t_norm
     
-    # Add some realistic variation/noise
-    noise = np.random.normal(0, 0.5, num_points)
-    y = y + noise
+    # Elliptical orbit (slight eccentricity)
+    eccentricity = 0.05
+    r = orbit_radius * (1 - eccentricity * np.cos(theta))
     
-    # Simulate flight parameters for each point
-    # Altitude (km), Velocity (m/s), Time (seconds)
-    altitude = y  # altitude in km
-    velocity = 500 + 7000 * t  # increasing velocity from 500 to 7500 m/s
-    time_elapsed = t * 600  # 0 to 600 seconds (10 minutes)
+    # Position in orbital plane
+    x = r * np.cos(theta)
+    y = r * np.sin(theta)
     
-    return x, y, altitude, velocity, time_elapsed
+    # Add inclination (15 degree tilt)
+    inclination = np.radians(15)
+    z = r * np.sin(theta) * np.sin(inclination)
+    y = r * np.sin(theta) * np.cos(inclination)
+    
+    # Add small perturbations
+    x += np.random.normal(0, 0.1, num_points)
+    y += np.random.normal(0, 0.1, num_points)
+    z += np.random.normal(0, 0.05, num_points)
+    
+    # Calculate velocity
+    vx = np.gradient(x, time_seconds)
+    vy = np.gradient(y, time_seconds)
+    vz = np.gradient(z, time_seconds)
+    
+    # Calculate altitude above surface
+    altitude = np.sqrt(x**2 + y**2 + z**2) - MOON_RADIUS_KM
+    
+    return x, y, z, vx, vy, vz, altitude, time_seconds
 
 # Generate the trajectory data
-x, y, altitude, velocity, time_elapsed = generate_rocket_trajectory(100)
+x, y, z, vx, vy, vz, altitude, time_elapsed = generate_lunar_orbit_trajectory(500)
 
 # ============================================================================
-# SET UP THE PLOT
+# SET UP 3D PLOT
 # ============================================================================
 
-fig, ax = plt.subplots(figsize=(12, 8))
-ax.set_xlim(x.min() - 5, x.max() + 5)
-ax.set_ylim(-5, y.max() + 10)
-ax.grid(True, alpha=0.3)
-ax.set_xlabel('Downrange Distance (km)', fontsize=12)
-ax.set_ylabel('Altitude (km)', fontsize=12)
-ax.set_title('Rocket Flight Trajectory Animation\n[Press SPACE to Pause/Play | Hover over points for info]', 
+fig = plt.figure(figsize=(14, 10))
+ax = fig.add_subplot(111, projection='3d')
+ax.set_xlabel('X Position (km)', fontsize=11)
+ax.set_ylabel('Y Position (km)', fontsize=11)
+ax.set_zlabel('Z Position (km)', fontsize=11)
+ax.set_title('Lunar Orbit Trajectory Animation\n[Press SPACE: Pause/Play | 1-4 Keys: Speed Control]', 
              fontsize=14, fontweight='bold')
+ax.grid(True, alpha=0.3)
+
+# Set equal aspect ratio for realistic view
+max_range = np.array([x.max()-x.min(), y.max()-y.min(), z.max()-z.min()]).max() / 2.0
+mid_x = (x.max()+x.min()) * 0.5
+mid_y = (y.max()+y.min()) * 0.5
+mid_z = (z.max()+z.min()) * 0.5
+ax.set_xlim(mid_x - max_range, mid_x + max_range)
+ax.set_ylim(mid_y - max_range, mid_y + max_range)
+ax.set_zlim(mid_z - max_range, mid_z + max_range)
 
 # ============================================================================
-# PLOT THE TRAJECTORY WITH COLOR GRADIENT (GREEN -> RED)
+# ADD MOON SPHERE
 # ============================================================================
 
-# Create color array: green (start) to red (end)
-# Uses RGB values that transition smoothly
-num_segments = len(x) - 1
-colors = np.zeros((num_segments, 4))  # RGBA colors
-for i in range(num_segments):
-    # Progress from 0 to 1
-    progress = i / num_segments
-    # Green to red transition
-    colors[i] = [progress, 1-progress, 0, 0.6]  # Red increases, Green decreases
+# Create Moon sphere
+u = np.linspace(0, 2 * np.pi, 50)
+v = np.linspace(0, np.pi, 40)
+moon_x = MOON_RADIUS_KM * np.outer(np.cos(u), np.sin(v))
+moon_y = MOON_RADIUS_KM * np.outer(np.sin(u), np.sin(v))
+moon_z = MOON_RADIUS_KM * np.outer(np.ones(np.size(u)), np.cos(v))
 
-# Plot trajectory as colored line segments
-from matplotlib.collections import LineCollection
-points = np.array([x, y]).T.reshape(-1, 1, 2)
-segments = np.concatenate([points[:-1], points[1:]], axis=1)
-lc = LineCollection(segments, colors=colors, linewidths=3, zorder=1)
-ax.add_collection(lc)
+ax.plot_surface(moon_x, moon_y, moon_z, color='gray', alpha=0.6, shade=True)
 
-# Plot all waypoints with color gradient
-scatter = ax.scatter(x, y, c=np.linspace(0, 1, len(x)), cmap='RdYlGn_r', 
-                    s=50, zorder=2, alpha=0.6, edgecolors='black', linewidths=0.5)
+# Add start and end markers
+ax.scatter(x[0], y[0], z[0], c='green', s=100, marker='o', label='Start', edgecolors='darkgreen', linewidths=2)
+ax.scatter(x[-1], y[-1], z[-1], c='red', s=100, marker='s', label='End', edgecolors='darkred', linewidths=2)
 
-# Highlight start and end points clearly
-ax.scatter(x[0], y[0], c='lime', s=300, marker='o', zorder=4, 
-          label='Launch Point', edgecolors='darkgreen', linewidths=2)
-ax.scatter(x[-1], y[-1], c='red', s=300, marker='*', zorder=4, 
-          label='Target/End', edgecolors='darkred', linewidths=2)
-
-# Place legend in bottom right corner to avoid covering live data in top left
-ax.legend(loc='lower right', fontsize=10, framealpha=0.9)
-
-# Add colorbar to show time progression
-cbar = plt.colorbar(scatter, ax=ax, orientation='vertical', pad=0.02)
-cbar.set_label('Flight Progress (Green=Start, Red=End)', rotation=270, labelpad=20)
+ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
 
 # ============================================================================
-# CREATE ANIMATED ROCKET OBJECT
+# CREATE ANIMATED OBJECTS
 # ============================================================================
 
-# The moving rocket indicator
-moving_rocket, = ax.plot([], [], 'o', markersize=20, color='orange', 
-                         markeredgecolor='black', markeredgewidth=2, zorder=5)
+# Spacecraft marker (orange)
+spacecraft, = ax.plot([], [], [], 'o', markersize=15, color='orange', 
+                     markeredgecolor='black', markeredgewidth=2)
 
-# Trail showing path traveled so far
-trail_line, = ax.plot([], [], 'yellow', linewidth=4, alpha=0.8, zorder=3)
+# Trail showing path traveled (cyan with gradient)
+trail_line, = ax.plot([], [], [], linewidth=3, color='cyan', alpha=0.9)
 
-# Text annotation showing current flight info
-info_text = ax.text(0.02, 0.98, '', transform=ax.transAxes, 
-                   fontsize=11, verticalalignment='top',
-                   bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.8))
+# Velocity direction arrow (red)
+velocity_arrow, = ax.plot([], [], [], 'r-', linewidth=3)
+
+# Telemetry text box
+info_text = ax.text2D(0.02, 0.98, '', transform=ax.transAxes, 
+                     fontsize=10, verticalalignment='top',
+                     bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.9),
+                     family='monospace')
 
 # Store trail data
 trail_x = []
 trail_y = []
+trail_z = []
+
+# Animation speed control
+animation_interval = 100  # milliseconds per frame
 
 # ============================================================================
-# HOVER FUNCTIONALITY - Show info when mouse hovers over points
+# KEYBOARD CONTROLS - SPEED AND PAUSE
 # ============================================================================
 
-# Annotation box that appears on hover
-annot = ax.annotate("", xy=(0,0), xytext=(20,20), textcoords="offset points",
-                   bbox=dict(boxstyle="round", fc="lightyellow", ec="black", lw=2),
-                   arrowprops=dict(arrowstyle="->", color="black"),
-                   fontsize=10, zorder=10)
-annot.set_visible(False)
-
-def on_hover(event):
-    """Show information when hovering over a data point"""
-    if event.inaxes == ax:
-        # Check if mouse is near any data point
-        for i in range(len(x)):
-            # Calculate distance from mouse to point
-            distance = np.sqrt((event.xdata - x[i])**2 + (event.ydata - y[i])**2)
-            
-            # If close enough to a point (within threshold)
-            if distance < 2:  # threshold distance
-                # Show annotation with flight data
-                annot.xy = (x[i], y[i])
-                text = f"Point {i+1}/{len(x)}\n"
-                text += f"Time: {time_elapsed[i]:.1f} s\n"
-                text += f"Altitude: {altitude[i]:.1f} km\n"
-                text += f"Velocity: {velocity[i]:.0f} m/s\n"
-                text += f"Downrange: {x[i]:.1f} km"
-                annot.set_text(text)
-                annot.set_visible(True)
-                fig.canvas.draw_idle()
-                return
-        
-        # Hide annotation if not near any point
-        if annot.get_visible():
-            annot.set_visible(False)
-            fig.canvas.draw_idle()
-
-# Connect hover event to the plot
-fig.canvas.mpl_connect("motion_notify_event", on_hover)
-
-# ============================================================================
-# PAUSE/PLAY FUNCTIONALITY
-# ============================================================================
-
-# Animation state tracker
 is_paused = False
 
 def on_key_press(event):
-    """Handle keyboard input for pause/play"""
-    global is_paused
+    """Handle keyboard input for pause/play and speed control"""
+    global is_paused, animation_interval
+    
     if event.key == ' ':  # Space bar toggles pause/play
         is_paused = not is_paused
         if is_paused:
             anim.event_source.stop()
-            print("Animation PAUSED - Press SPACE to resume")
+            print("PAUSED - Press SPACE to resume")
         else:
             anim.event_source.start()
-            print("Animation PLAYING - Press SPACE to pause")
+            print("PLAYING - Press SPACE to pause")
+    
+    elif event.key == '1':  # 0.5x speed
+        animation_interval = 200
+        anim.event_source.interval = animation_interval
+        print("Speed: 0.5x")
+    
+    elif event.key == '2':  # 1.0x speed
+        animation_interval = 100
+        anim.event_source.interval = animation_interval
+        print("Speed: 1.0x")
+    
+    elif event.key == '3':  # 1.5x speed
+        animation_interval = 67
+        anim.event_source.interval = animation_interval
+        print("Speed: 1.5x")
+    
+    elif event.key == '4':  # 2.0x speed
+        animation_interval = 50
+        anim.event_source.interval = animation_interval
+        print("Speed: 2.0x")
 
-# Connect keyboard event to the plot
 fig.canvas.mpl_connect('key_press_event', on_key_press)
 
 # ============================================================================
@@ -180,67 +182,101 @@ fig.canvas.mpl_connect('key_press_event', on_key_press)
 # ============================================================================
 
 def init():
-    """Initialize animation - set empty data for moving elements"""
-    moving_rocket.set_data([], [])
+    """Initialize animation"""
+    spacecraft.set_data([], [])
+    spacecraft.set_3d_properties([])
     trail_line.set_data([], [])
+    trail_line.set_3d_properties([])
+    velocity_arrow.set_data([], [])
+    velocity_arrow.set_3d_properties([])
     info_text.set_text('')
-    return moving_rocket, trail_line, info_text
+    return spacecraft, trail_line, velocity_arrow, info_text
 
 def animate(frame):
-    """
-    Update function called for each animation frame
-    frame: current frame number (0 to len(x)-1)
-    """
-    # Get current position
+    """Update animation for each frame"""
+    # Current position
     current_x = x[frame]
     current_y = y[frame]
+    current_z = z[frame]
     
-    # Update rocket position
-    moving_rocket.set_data([current_x], [current_y])
+    # Update spacecraft position
+    spacecraft.set_data([current_x], [current_y])
+    spacecraft.set_3d_properties([current_z])
     
     # Update trail (path traveled so far)
     trail_x.append(current_x)
     trail_y.append(current_y)
+    trail_z.append(current_z)
     trail_line.set_data(trail_x, trail_y)
+    trail_line.set_3d_properties(trail_z)
     
-    # Update info text box with current flight data
+    # Update velocity direction arrow
+    # Arrow extends from spacecraft in direction of velocity
+    vel_mag = np.sqrt(vx[frame]**2 + vy[frame]**2 + vz[frame]**2)
+    if vel_mag > 0:
+        # Normalize and scale
+        arrow_length = 300  # km
+        dir_x = vx[frame] / vel_mag * arrow_length
+        dir_y = vy[frame] / vel_mag * arrow_length
+        dir_z = vz[frame] / vel_mag * arrow_length
+        
+        velocity_arrow.set_data([current_x, current_x + dir_x], 
+                               [current_y, current_y + dir_y])
+        velocity_arrow.set_3d_properties([current_z, current_z + dir_z])
+    
+    # Update telemetry display
     progress = (frame + 1) / len(x) * 100
     info_text.set_text(
-        f'Flight Progress: {progress:.1f}%\n'
-        f'Point: {frame+1}/{len(x)}\n'
+        f'TELEMETRY\n'
         f'Time: {time_elapsed[frame]:.1f} s\n'
-        f'Altitude: {altitude[frame]:.1f} km\n'
-        f'Velocity: {velocity[frame]:.0f} m/s'
+        f'Altitude: {altitude[frame]:.2f} km\n'
+        f'Frame: {frame+1}/{len(x)}'
     )
     
-    return moving_rocket, trail_line, info_text
+    return spacecraft, trail_line, velocity_arrow, info_text
 
 # ============================================================================
 # CREATE AND RUN ANIMATION
 # ============================================================================
 
-# Create the animation
 anim = animation.FuncAnimation(
     fig, 
     animate, 
     init_func=init,
-    frames=len(x),  # One frame per data point
-    interval=100,  # 100ms between frames (10 fps)
-    blit=True,  # Optimization: only redraw changed elements
-    repeat=True  # Loop the animation
+    frames=len(x),
+    interval=animation_interval,
+    blit=True,
+    repeat=True
 )
 
-# Display the animation
 plt.tight_layout()
-print("\n" + "="*60)
-print("CONTROLS:")
-print("  - Press SPACE to pause/play the animation")
-print("  - Hover mouse over any point to see detailed info")
-print("  - Close window to exit")
-print("="*60 + "\n")
+
+print("\n" + "="*70)
+print("LUNAR ORBIT TRAJECTORY ANIMATION - Matplotlib Edition")
+print("="*70)
+print("\nMission Profile:")
+print(f"  Orbit altitude: 100 km above Moon surface")
+print(f"  Orbit period: ~2 hours")
+print(f"  Number of orbits: 2")
+print(f"  Data points: {len(x)}")
+print("\nCONTROLS:")
+print("  SPACE    - Pause/Play")
+print("  1 Key    - 0.5x Speed (slow)")
+print("  2 Key    - 1.0x Speed (normal)")
+print("  3 Key    - 1.5x Speed (fast)")
+print("  4 Key    - 2.0x Speed (very fast)")
+print("  Mouse    - Click and drag to rotate view")
+print("\nVISUAL ELEMENTS:")
+print("  Gray Sphere - Moon")
+print("  Orange Dot  - Spacecraft")
+print("  Cyan Trail  - Path traveled")
+print("  Red Line    - Velocity direction")
+print("  Green Dot   - Orbit start")
+print("  Red Square  - Orbit end")
+print("="*70 + "\n")
+
 plt.show()
 
-# Optional: Save the animation
-# Uncomment to save as GIF (requires pillow: pip install pillow)
-# anim.save('rocket_trajectory.gif', writer='pillow', fps=10)
+# Optional: Save animation
+# anim.save('lunar_orbit.gif', writer='pillow', fps=10)
 
