@@ -148,18 +148,20 @@ annot = ax.text2D(0.5, 0.5, '', transform=ax.transAxes,
 def on_hover(event):
     """Show x,y,z coordinates when hovering near trajectory points"""
     if event.inaxes == ax:
-        # Check if mouse is near any trajectory point
-        if event.xdata is not None and event.ydata is not None:
-            for i in range(len(x)):
-                # Calculate 2D distance in plot coordinates
-                dx = event.xdata - x[i]
-                dy = event.ydata - y[i]
-                distance = np.sqrt(dx**2 + dy**2)
+        # Sample every 10th point for performance
+        sample_indices = range(0, len(x), 10)
+        
+        for i in sample_indices:
+            # Project 3D point to 2D screen coordinates
+            try:
+                proj = ax.transData.transform([x[i], y[i], z[i]])
+                mouse_pos = np.array([event.x, event.y])
                 
-                # If close to a point (within threshold)
-                threshold = max_range * 0.05  # 5% of plot range
-                if distance < threshold:
-                    # Show annotation with position data
+                # Calculate distance in screen pixels
+                distance = np.linalg.norm(proj - mouse_pos)
+                
+                # If close to point (within 20 pixels)
+                if distance < 20:
                     text = f"Point {i+1}/{len(x)}\n"
                     text += f"X: {x[i]:.2f} km\n"
                     text += f"Y: {y[i]:.2f} km\n"
@@ -167,11 +169,14 @@ def on_hover(event):
                     text += f"Time: {time_elapsed[i]:.1f} s"
                     
                     annot.set_text(text)
+                    annot.set_position((0.02, 0.5))
                     annot.set_visible(True)
                     fig.canvas.draw_idle()
                     return
+            except:
+                pass
         
-        # Hide annotation if not near any point
+        # Hide if not near any point
         if annot.get_visible():
             annot.set_visible(False)
             fig.canvas.draw_idle()
