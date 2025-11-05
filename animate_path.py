@@ -137,51 +137,28 @@ trail_z = []
 animation_interval = 100  # milliseconds per frame
 
 # ============================================================================
-# HOVER FUNCTIONALITY
+# CLICK TO SHOW COORDINATES
 # ============================================================================
 
-# Create annotation for hover display
-annot = ax.text2D(0.5, 0.5, '', transform=ax.transAxes,
-                 bbox=dict(boxstyle='round', facecolor='lightyellow', edgecolor='black', linewidth=2),
-                 fontsize=9, family='monospace', visible=False)
+# Add invisible scatter points for click detection
+clickable_points = ax.scatter(x, y, z, s=50, alpha=0, picker=5)
 
-def on_hover(event):
-    """Show x,y,z coordinates when hovering near trajectory points"""
-    if event.inaxes == ax:
-        # Sample every 10th point for performance
-        sample_indices = range(0, len(x), 10)
+def on_click(event):
+    """Show x,y,z coordinates when clicking near trajectory"""
+    if event.ind is not None and len(event.ind) > 0:
+        # Get closest point from click
+        idx = event.ind[0]
         
-        for i in sample_indices:
-            # Project 3D point to 2D screen coordinates
-            try:
-                proj = ax.transData.transform([x[i], y[i], z[i]])
-                mouse_pos = np.array([event.x, event.y])
-                
-                # Calculate distance in screen pixels
-                distance = np.linalg.norm(proj - mouse_pos)
-                
-                # If close to point (within 20 pixels)
-                if distance < 20:
-                    text = f"Point {i+1}/{len(x)}\n"
-                    text += f"X: {x[i]:.2f} km\n"
-                    text += f"Y: {y[i]:.2f} km\n"
-                    text += f"Z: {z[i]:.2f} km\n"
-                    text += f"Time: {time_elapsed[i]:.1f} s"
-                    
-                    annot.set_text(text)
-                    annot.set_position((0.02, 0.5))
-                    annot.set_visible(True)
-                    fig.canvas.draw_idle()
-                    return
-            except:
-                pass
+        text = f"Point {idx+1}/{len(x)}\n"
+        text += f"X: {x[idx]:.2f} km\n"
+        text += f"Y: {y[idx]:.2f} km\n"
+        text += f"Z: {z[idx]:.2f} km\n"
+        text += f"Time: {time_elapsed[idx]:.1f} s\n"
+        text += f"Altitude: {altitude[idx]:.2f} km"
         
-        # Hide if not near any point
-        if annot.get_visible():
-            annot.set_visible(False)
-            fig.canvas.draw_idle()
+        print("\n" + text.replace('<br>', '\n'))
 
-fig.canvas.mpl_connect('motion_notify_event', on_hover)
+fig.canvas.mpl_connect('pick_event', on_click)
 
 # ============================================================================
 # KEYBOARD CONTROLS - SPEED AND PAUSE
