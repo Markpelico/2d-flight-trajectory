@@ -421,50 +421,14 @@ def create_orbital_visualization(df):
 # ============================================================================
 
 def main():
-    print("\n" + "="*70)
-    print("ORBITAL TRAJECTORY ANIMATION TOOL")
-    print("="*70)
-    
-    print("\nGenerating lunar orbit trajectory...")
-    print("  Orbit altitude: 100 km above moon surface")
-    print("  Orbit period: ~2 hours")
-    print("  Number of orbits: 2")
-    print("  Inclination: 15 degrees")
-    
+    print("Loading trajectory data...")
     df = generate_lunar_orbit_trajectory(num_points=500)
     
-    print(f"\nGenerated {len(df)} data points")
-    
-    print("\nGenerating 3D visualization...")
+    print("Generating visualization...")
     fig = create_orbital_visualization(df)
     
-    print("\nControls:")
-    print("  - Play/Pause/Reset: Control animation")
-    print("  - Speed buttons: 0.5x, 1.0x, 1.5x, 2.0x")
-    print("  - Slider: Scrub to specific position")
-    print("  - Click and drag: Rotate view")
-    print("  - Scroll: Zoom")
-    print("  - Hover: View data at point")
-    
-    print("\nVisualization Features:")
-    print("  - Gray sphere: Moon")
-    print("  - Silver cone: Spacecraft (points in direction of travel)")
-    print("  - Red arrow: Velocity direction indicator")
-    print("  - Blue-yellow gradient: Trajectory path (time progression)")
-    
-    print("\nOther Views Status:")
-    print("  - Set B Position: Under Construction")
-    print("  - Position Difference: Under Construction")
-    print("  - Set A Velocity: Under Construction")
-    print("  - Set B Velocity: Under Construction")
-    print("  - Velocity Difference: Under Construction")
-    
-    print("\nOpening in browser...")
-    print("="*70 + "\n")
-    
+    print("Opening in browser...")
     fig.show()
-    
-    print("\nVisualization closed.")
 
 if __name__ == "__main__":
     main()

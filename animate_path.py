@@ -146,34 +146,28 @@ def on_key_press(event):
     """Handle keyboard input for pause/play and speed control"""
     global is_paused, animation_interval
     
-    if event.key == ' ':  # Space bar toggles pause/play
+    if event.key == ' ':
         is_paused = not is_paused
         if is_paused:
             anim.event_source.stop()
-            print("PAUSED - Press SPACE to resume")
         else:
             anim.event_source.start()
-            print("PLAYING - Press SPACE to pause")
     
-    elif event.key == '1':  # 0.5x speed
+    elif event.key == '1':
         animation_interval = 200
         anim.event_source.interval = animation_interval
-        print("Speed: 0.5x")
     
-    elif event.key == '2':  # 1.0x speed
+    elif event.key == '2':
         animation_interval = 100
         anim.event_source.interval = animation_interval
-        print("Speed: 1.0x")
     
-    elif event.key == '3':  # 1.5x speed
+    elif event.key == '3':
         animation_interval = 67
         anim.event_source.interval = animation_interval
-        print("Speed: 1.5x")
     
-    elif event.key == '4':  # 2.0x speed
+    elif event.key == '4':
         animation_interval = 50
         anim.event_source.interval = animation_interval
-        print("Speed: 2.0x")
 
 fig.canvas.mpl_connect('key_press_event', on_key_press)
 
@@ -251,29 +245,8 @@ anim = animation.FuncAnimation(
 
 plt.tight_layout()
 
-print("\n" + "="*70)
-print("LUNAR ORBIT TRAJECTORY ANIMATION - Matplotlib Edition")
-print("="*70)
-print("\nMission Profile:")
-print(f"  Orbit altitude: 100 km above Moon surface")
-print(f"  Orbit period: ~2 hours")
-print(f"  Number of orbits: 2")
-print(f"  Data points: {len(x)}")
-print("\nCONTROLS:")
-print("  SPACE    - Pause/Play")
-print("  1 Key    - 0.5x Speed (slow)")
-print("  2 Key    - 1.0x Speed (normal)")
-print("  3 Key    - 1.5x Speed (fast)")
-print("  4 Key    - 2.0x Speed (very fast)")
-print("  Mouse    - Click and drag to rotate view")
-print("\nVISUAL ELEMENTS:")
-print("  Gray Sphere - Moon")
-print("  Orange Dot  - Spacecraft")
-print("  Cyan Trail  - Path traveled")
-print("  Red Line    - Velocity direction")
-print("  Green Dot   - Orbit start")
-print("  Red Square  - Orbit end")
-print("="*70 + "\n")
+print("Loading...")
+print("Controls: SPACE=Pause/Play | Keys 1-4=Speed | Mouse=Rotate")
 
 plt.show()
 
