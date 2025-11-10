@@ -31,7 +31,7 @@ Controls:
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-from dash import Dash, dcc, html, Input, Output, callback
+from dash import Dash, dcc, html, Input, Output, State, callback
 import dash
 
 # ============================================================================
@@ -302,20 +302,20 @@ def create_animated_trail(df, frame_idx, trail_length=TRAIL_GRADIENT_POINTS):
     
     return trail_trace
 
-def create_figure(df):
+def create_figure(df, frame_idx=0):
     """
-    Create the main Plotly figure with all traces and animation frames.
-    Optimized for WebGL rendering and smooth performance.
+    Create the main Plotly figure for the current frame.
+    Uses callback-based animation to preserve camera control.
     """
     # Create all traces
     moon = create_moon_surface()
     trajectory = create_trajectory_trace(df)
     markers = create_start_end_markers(df)
     
-    # Initial frame traces
-    spacecraft = create_spacecraft_marker(df, 0)
-    velocity = create_velocity_arrow(df, 0)
-    trail = create_animated_trail(df, 0)
+    # Current frame traces
+    spacecraft = create_spacecraft_marker(df, frame_idx)
+    velocity = create_velocity_arrow(df, frame_idx)
+    trail = create_animated_trail(df, frame_idx)
     
     # Create figure (filter out None values)
     initial_data = [moon, trajectory, markers, spacecraft, velocity]
@@ -323,48 +323,13 @@ def create_figure(df):
         initial_data.append(trail)
     fig = go.Figure(data=initial_data)
     
-    # Create animation frames (subsample for performance)
-    frames = []
-    frame_step = 2  # Update every 2nd point for smoother performance
-    
-    for i in range(0, len(df), frame_step):
-        spacecraft_frame = create_spacecraft_marker(df, i)
-        velocity_frame = create_velocity_arrow(df, i)
-        trail_frame = create_animated_trail(df, i)
-        
-        # Telemetry annotation
-        telemetry_text = (
-            f"<b>TELEMETRY</b><br>"
-            f"Time: {df['Time_s'].iloc[i]:.1f} s<br>"
-            f"Altitude: {df['Altitude_km'].iloc[i]:.1f} km<br>"
-            f"Frame: {i+1}/{len(df)}"
-        )
-        
-        frame_data = [moon, trajectory, markers, spacecraft_frame, velocity_frame]
-        if trail_frame:
-            frame_data.append(trail_frame)
-        
-        frames.append(go.Frame(
-            data=frame_data,
-            name=str(i),
-            layout=go.Layout(
-                annotations=[dict(
-                    x=0.02, y=0.98,
-                    xref='paper', yref='paper',
-                    text=telemetry_text,
-                    showarrow=False,
-                    bgcolor='rgba(255,255,255,0.9)',
-                    bordercolor='gray',
-                    borderwidth=1,
-                    font=dict(size=11, family='monospace'),
-                    align='left',
-                    xanchor='left',
-                    yanchor='top'
-                )]
-            )
-        ))
-    
-    fig.frames = frames
+    # Telemetry annotation for current frame
+    telemetry_text = (
+        f"<b>TELEMETRY</b><br>"
+        f"Time: {df['Time_s'].iloc[frame_idx]:.1f} s<br>"
+        f"Altitude: {df['Altitude_km'].iloc[frame_idx]:.1f} km<br>"
+        f"Frame: {frame_idx+1}/{len(df)}"
+    )
     
     # Configure layout
     fig.update_layout(
@@ -392,94 +357,23 @@ def create_figure(df):
             borderwidth=1,
             font=dict(size=10)
         ),
+        annotations=[dict(
+            x=0.02, y=0.98,
+            xref='paper', yref='paper',
+            text=telemetry_text,
+            showarrow=False,
+            bgcolor='rgba(255,255,255,0.9)',
+            bordercolor='gray',
+            borderwidth=1,
+            font=dict(size=11, family='monospace'),
+            align='left',
+            xanchor='left',
+            yanchor='top'
+        )],
         paper_bgcolor='#f8f9fa',
         plot_bgcolor='#ffffff',
         margin=dict(l=0, r=0, t=60, b=0),
-        
-        # Animation controls
-        updatemenus=[
-            # Play/Pause button
-            dict(
-                type='buttons',
-                showactive=True,
-                x=0.12, y=0.02,
-                xanchor='left', yanchor='bottom',
-                buttons=[
-                    dict(
-                        label='Play',
-                        method='animate',
-                        args=[None, dict(
-                            frame=dict(duration=20, redraw=True),
-                            fromcurrent=True,
-                            mode='immediate',
-                            transition=dict(duration=0, easing='linear'),
-                            layout=dict(scene=dict(camera=None))
-                        )]
-                    ),
-                    dict(
-                        label='Pause',
-                        method='animate',
-                        args=[[None], dict(
-                            frame=dict(duration=0, redraw=False),
-                            mode='immediate',
-                            transition=dict(duration=0)
-                        )]
-                    )
-                ],
-                bgcolor='white',
-                bordercolor='gray',
-                borderwidth=1,
-                font=dict(size=12)
-            ),
-            
-            # Speed controls
-            dict(
-                type='buttons',
-                showactive=True,
-                x=0.25, y=0.02,
-                xanchor='left', yanchor='bottom',
-                buttons=[
-                    dict(label='0.5x', method='animate',
-                         args=[None, dict(frame=dict(duration=40, redraw=True), mode='immediate',
-                                         transition=dict(duration=0), layout=dict(scene=dict(camera=None)))]),
-                    dict(label='1.0x', method='animate',
-                         args=[None, dict(frame=dict(duration=20, redraw=True), mode='immediate',
-                                         transition=dict(duration=0), layout=dict(scene=dict(camera=None)))]),
-                    dict(label='1.5x', method='animate',
-                         args=[None, dict(frame=dict(duration=13, redraw=True), mode='immediate',
-                                         transition=dict(duration=0), layout=dict(scene=dict(camera=None)))]),
-                    dict(label='2.0x', method='animate',
-                         args=[None, dict(frame=dict(duration=10, redraw=True), mode='immediate',
-                                         transition=dict(duration=0), layout=dict(scene=dict(camera=None)))])
-                ],
-                bgcolor='white',
-                bordercolor='gray',
-                borderwidth=1,
-                font=dict(size=11)
-            )
-        ],
-        
-        # Slider for manual frame selection
-        sliders=[dict(
-            active=0,
-            steps=[dict(
-                args=[[f.name], dict(
-                    frame=dict(duration=0, redraw=True),
-                    mode='immediate',
-                    transition=dict(duration=0)
-                )],
-                label=f"{int(f.name)}",
-                method='animate'
-            ) for f in frames[::20]],  # Subsample slider for performance
-            x=0.12, y=0.0,
-            len=0.85,
-            xanchor='left', yanchor='top',
-            bgcolor='white',
-            bordercolor='gray',
-            borderwidth=1,
-            ticklen=5,
-            font=dict(size=10)
-        )]
+        uirevision='constant'  # Preserve camera position between updates
     )
     
     # Enable WebGL for better performance
@@ -511,10 +405,29 @@ app.layout = html.Div([
                style={'textAlign': 'center', 'color': '#7f8c8d', 'fontSize': '14px'})
     ], style={'backgroundColor': '#ecf0f1', 'padding': '15px', 'marginBottom': '10px'}),
     
+    # Animation controls
+    html.Div([
+        html.Button('Play', id='play-button', n_clicks=0, 
+                   style={'marginRight': '10px', 'padding': '8px 20px', 'fontSize': '14px'}),
+        html.Button('Pause', id='pause-button', n_clicks=0,
+                   style={'marginRight': '20px', 'padding': '8px 20px', 'fontSize': '14px'}),
+        html.Label('Speed: ', style={'marginRight': '10px', 'fontSize': '14px'}),
+        html.Button('0.5x', id='speed-05x', n_clicks=0,
+                   style={'marginRight': '5px', 'padding': '6px 15px', 'fontSize': '13px'}),
+        html.Button('1.0x', id='speed-10x', n_clicks=0,
+                   style={'marginRight': '5px', 'padding': '6px 15px', 'fontSize': '13px', 
+                          'backgroundColor': '#e0e0e0'}),
+        html.Button('1.5x', id='speed-15x', n_clicks=0,
+                   style={'marginRight': '5px', 'padding': '6px 15px', 'fontSize': '13px'}),
+        html.Button('2.0x', id='speed-20x', n_clicks=0,
+                   style={'padding': '6px 15px', 'fontSize': '13px'}),
+    ], style={'textAlign': 'center', 'padding': '10px', 'backgroundColor': '#ffffff'}),
+    
+    # Graph
     dcc.Graph(
         id='trajectory-plot',
         figure=fig,
-        style={'height': '85vh'},
+        style={'height': '75vh'},
         config={
             'displayModeBar': True,
             'displaylogo': False,
@@ -529,11 +442,104 @@ app.layout = html.Div([
         }
     ),
     
+    # Animation interval (hidden)
+    dcc.Interval(id='animation-interval', interval=20, disabled=True),
+    
+    # Store current frame and speed
+    dcc.Store(id='current-frame', data=0),
+    dcc.Store(id='animation-speed', data=20),
+    
     html.Div([
         html.P('Server running on http://localhost:8050 | Press Ctrl+C to stop',
                style={'textAlign': 'center', 'color': '#95a5a6', 'fontSize': '12px', 'marginTop': '10px'})
     ])
 ], style={'backgroundColor': '#f8f9fa', 'height': '100vh', 'margin': '0', 'padding': '0'})
+
+# ============================================================================
+# CALLBACKS FOR ANIMATION
+# ============================================================================
+
+# Play/Pause callbacks
+@app.callback(
+    Output('animation-interval', 'disabled'),
+    [Input('play-button', 'n_clicks'),
+     Input('pause-button', 'n_clicks')],
+    prevent_initial_call=True
+)
+def control_animation(play_clicks, pause_clicks):
+    """Control play/pause state"""
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return True
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    return button_id == 'pause-button'
+
+# Speed control callbacks
+@app.callback(
+    [Output('animation-interval', 'interval'),
+     Output('animation-speed', 'data')],
+    [Input('speed-05x', 'n_clicks'),
+     Input('speed-10x', 'n_clicks'),
+     Input('speed-15x', 'n_clicks'),
+     Input('speed-20x', 'n_clicks')],
+    prevent_initial_call=True
+)
+def update_speed(c05, c10, c15, c20):
+    """Update animation speed"""
+    ctx = dash.callback_context
+    if not ctx.triggered:
+        return 20, 20
+    button_id = ctx.triggered[0]['prop_id'].split('.')[0]
+    
+    speed_map = {
+        'speed-05x': 40,
+        'speed-10x': 20,
+        'speed-15x': 13,
+        'speed-20x': 10
+    }
+    interval = speed_map.get(button_id, 20)
+    return interval, interval
+
+# Main animation callback
+@app.callback(
+    [Output('trajectory-plot', 'figure'),
+     Output('current-frame', 'data')],
+    [Input('animation-interval', 'n_intervals')],
+    [State('current-frame', 'data'),
+     State('trajectory-plot', 'figure')]
+)
+def update_frame(n_intervals, current_frame, current_fig):
+    """Update the plot for the current animation frame"""
+    if n_intervals is None:
+        return dash.no_update, dash.no_update
+    
+    # Increment frame (loop back to start)
+    next_frame = (current_frame + 1) % len(df)
+    
+    # Update only the animated traces (spacecraft, velocity, trail)
+    # Keep existing camera position from current_fig
+    new_spacecraft = create_spacecraft_marker(df, next_frame)
+    new_velocity = create_velocity_arrow(df, next_frame)
+    new_trail = create_animated_trail(df, next_frame)
+    
+    # Update figure data (indices: 0=moon, 1=trajectory, 2=markers, 3=spacecraft, 4=velocity, 5=trail)
+    current_fig['data'][3] = new_spacecraft
+    current_fig['data'][4] = new_velocity
+    if new_trail and len(current_fig['data']) > 5:
+        current_fig['data'][5] = new_trail
+    elif new_trail:
+        current_fig['data'].append(new_trail)
+    
+    # Update telemetry annotation
+    telemetry_text = (
+        f"<b>TELEMETRY</b><br>"
+        f"Time: {df['Time_s'].iloc[next_frame]:.1f} s<br>"
+        f"Altitude: {df['Altitude_km'].iloc[next_frame]:.1f} km<br>"
+        f"Frame: {next_frame+1}/{len(df)}"
+    )
+    current_fig['layout']['annotations'][0]['text'] = telemetry_text
+    
+    return current_fig, next_frame
 
 # ============================================================================
 # RUN SERVER
