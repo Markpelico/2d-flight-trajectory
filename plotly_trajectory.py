@@ -317,8 +317,11 @@ def create_figure(df):
     velocity = create_velocity_arrow(df, 0)
     trail = create_animated_trail(df, 0)
     
-    # Create figure
-    fig = go.Figure(data=[moon, trajectory, markers, spacecraft, velocity, trail])
+    # Create figure (filter out None values)
+    initial_data = [moon, trajectory, markers, spacecraft, velocity]
+    if trail is not None:
+        initial_data.append(trail)
+    fig = go.Figure(data=initial_data)
     
     # Create animation frames (subsample for performance)
     frames = []
