@@ -547,5 +547,5 @@ if __name__ == '__main__':
     print("Press Ctrl+C to stop")
     print("="*70 + "\n")
     
-    app.run_server(debug=False, host='0.0.0.0', port=8050)
+    app.run(debug=False, host='0.0.0.0', port=8050)
 
