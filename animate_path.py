@@ -1,43 +1,6 @@
-"""
-Lunar Orbit Trajectory Animation (60 FPS Ultra-Optimized)
-==========================================================
-Optimized for buttery smooth 60 FPS performance on:
-- MacBook Air 2025 (M4)
-- HP EliteBook 640 G10
-- Dual Xeon systems with limited GPU
-- Remote desktop/SSH X11 forwarding
-
-Performance features:
-- Smart backend selection (TkAgg for servers, native for desktops)
-- Aggressive rendering optimizations
-- Minimal geometry for moon (20x15)
-- Short trail with simplified gradient (75 points)
-- Frame skipping for ultra-smooth interaction
-- Cached rendering where possible
-"""
-
 import numpy as np
 import matplotlib
-import sys
-import os
-
-# Smart backend selection for optimal performance
-if 'SSH_CONNECTION' in os.environ or 'SSH_TTY' in os.environ:
-    matplotlib.use('TkAgg')  # Best for SSH/remote
-    print("Backend: TkAgg (remote session)")
-elif sys.platform == 'linux':
-    matplotlib.use('TkAgg')  # Most reliable on Linux
-    print("Backend: TkAgg (Linux)")
-elif sys.platform == 'darwin':
-    pass  # Use native MacOSX backend (fastest on Mac)
-    print("Backend: MacOSX (native)")
-else:
-    try:
-        matplotlib.use('Qt5Agg')
-    except:
-        matplotlib.use('TkAgg')
-    print("Backend: Qt5Agg/TkAgg")
-
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.patches import FancyArrowPatch, Circle
@@ -469,11 +432,6 @@ anim = animation.FuncAnimation(
 )
 
 plt.tight_layout()
-
-print("Loading 60 FPS optimized animation...")
-print("Controls: SPACE=Pause/Play | 1-4=Speed (30-120 FPS) | +/-=Zoom | R=Reset | Click=Data")
-print("Trajectory Points: {} | Trail Length: {} | Target: 60 FPS".format(NUM_TRAJECTORY_POINTS, MAX_TRAIL_LENGTH))
-
 plt.show()
 
 
