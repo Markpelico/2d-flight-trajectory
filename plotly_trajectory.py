@@ -412,7 +412,8 @@ def create_figure(df):
                             frame=dict(duration=20, redraw=True),
                             fromcurrent=True,
                             mode='immediate',
-                            transition=dict(duration=0)
+                            transition=dict(duration=0, easing='linear'),
+                            layout=dict(scene=dict(camera=None))
                         )]
                     ),
                     dict(
@@ -439,13 +440,17 @@ def create_figure(df):
                 xanchor='left', yanchor='bottom',
                 buttons=[
                     dict(label='0.5x', method='animate',
-                         args=[None, dict(frame=dict(duration=40, redraw=True), mode='immediate')]),
+                         args=[None, dict(frame=dict(duration=40, redraw=True), mode='immediate',
+                                         transition=dict(duration=0), layout=dict(scene=dict(camera=None)))]),
                     dict(label='1.0x', method='animate',
-                         args=[None, dict(frame=dict(duration=20, redraw=True), mode='immediate')]),
+                         args=[None, dict(frame=dict(duration=20, redraw=True), mode='immediate',
+                                         transition=dict(duration=0), layout=dict(scene=dict(camera=None)))]),
                     dict(label='1.5x', method='animate',
-                         args=[None, dict(frame=dict(duration=13, redraw=True), mode='immediate')]),
+                         args=[None, dict(frame=dict(duration=13, redraw=True), mode='immediate',
+                                         transition=dict(duration=0), layout=dict(scene=dict(camera=None)))]),
                     dict(label='2.0x', method='animate',
-                         args=[None, dict(frame=dict(duration=10, redraw=True), mode='immediate')])
+                         args=[None, dict(frame=dict(duration=10, redraw=True), mode='immediate',
+                                         transition=dict(duration=0), layout=dict(scene=dict(camera=None)))])
                 ],
                 bgcolor='white',
                 bordercolor='gray',
