@@ -10,6 +10,7 @@ from matplotlib.widgets import Button
 # ============================================================================
 
 MOON_RADIUS_KM = 1737.4  # Actual moon radius in km
+MAX_TRAIL_LENGTH = 150  # Limit trail points for performance
 
 # ============================================================================
 # GENERATE LUNAR ORBITAL TRAJECTORY DATA
@@ -101,15 +102,15 @@ ax.set_zlim(mid_z - max_range, mid_z + max_range)
 # ADD MOON SPHERE
 # ============================================================================
 
-# Create Moon sphere (higher resolution for rounder appearance)
-u = np.linspace(0, 2 * np.pi, 80)
-v = np.linspace(0, np.pi, 60)
+# Create Moon sphere (optimized resolution for performance)
+u = np.linspace(0, 2 * np.pi, 40)
+v = np.linspace(0, np.pi, 30)
 moon_x = MOON_RADIUS_KM * np.outer(np.cos(u), np.sin(v))
 moon_y = MOON_RADIUS_KM * np.outer(np.sin(u), np.sin(v))
 moon_z = MOON_RADIUS_KM * np.outer(np.ones(np.size(u)), np.cos(v))
 
 ax.plot_surface(moon_x, moon_y, moon_z, color='#808080', alpha=0.5, shade=True, 
-               edgecolor='none', linewidth=0)
+               edgecolor='none', linewidth=0, antialiased=False, rcount=30, ccount=40)
 
 # Add start and end markers
 ax.scatter(x[0], y[0], z[0], c='green', s=100, marker='o', label='Start', edgecolors='darkgreen', linewidths=2)
@@ -154,7 +155,7 @@ info_text = ax.text2D(0.02, 0.98, '', transform=ax.transAxes,
                      family='monospace')
 
 # Speed display
-speed_text = ax.text2D(0.98, 0.02, 'Speed: 1.0x', transform=ax.transAxes,
+speed_text = ax.text2D(0.98, 0.02, 'Speed: 1.0x (20 FPS)', transform=ax.transAxes,
                       fontsize=9, verticalalignment='bottom', horizontalalignment='right',
                       bbox=dict(boxstyle='round', facecolor='white', 
                                edgecolor='gray', linewidth=1, alpha=0.9),
@@ -166,7 +167,7 @@ trail_y = []
 trail_z = []
 
 # Animation speed control
-animation_interval = 100  # milliseconds per frame
+animation_interval = 50  # milliseconds per frame (higher FPS for smoother animation)
 
 # ============================================================================
 # CLICK TO SHOW COORDINATES (RELIABLE METHOD)
@@ -264,25 +265,25 @@ def on_key_press(event):
             anim.event_source.start()
     
     elif event.key == '1':
-        animation_interval = 200
+        animation_interval = 100
         anim.event_source.interval = animation_interval
         speed_text.set_text('Speed: 0.5x')
         fig.canvas.draw_idle()
     
     elif event.key == '2':
-        animation_interval = 100
+        animation_interval = 50
         anim.event_source.interval = animation_interval
         speed_text.set_text('Speed: 1.0x')
         fig.canvas.draw_idle()
     
     elif event.key == '3':
-        animation_interval = 67
+        animation_interval = 33
         anim.event_source.interval = animation_interval
         speed_text.set_text('Speed: 1.5x')
         fig.canvas.draw_idle()
     
     elif event.key == '4':
-        animation_interval = 50
+        animation_interval = 25
         anim.event_source.interval = animation_interval
         speed_text.set_text('Speed: 2.0x')
         fig.canvas.draw_idle()
@@ -364,10 +365,16 @@ def animate(frame):
     spacecraft.set_data([current_x], [current_y])
     spacecraft.set_3d_properties([current_z])
     
-    # Update trail (path traveled so far)
+    # Update trail (path traveled so far) with length limit
     trail_x.append(current_x)
     trail_y.append(current_y)
     trail_z.append(current_z)
+    
+    # Limit trail length for better performance
+    if len(trail_x) > MAX_TRAIL_LENGTH:
+        trail_x.pop(0)
+        trail_y.pop(0)
+        trail_z.pop(0)
     
     # Remove old trail collection
     if trail_collection is not None:
@@ -387,7 +394,7 @@ def animate(frame):
             g = 1 - progress
             colors.append((r, g, 0, 0.9))
         
-        trail_collection = Line3DCollection(segments, colors=colors, linewidths=4, zorder=5)
+        trail_collection = Line3DCollection(segments, colors=colors, linewidths=3, zorder=5)
         ax.add_collection3d(trail_collection)
     
     # Update velocity direction arrow (points where spacecraft is heading)
