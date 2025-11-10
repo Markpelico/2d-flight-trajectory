@@ -121,8 +121,7 @@ moon_y = MOON_RADIUS_KM * np.outer(np.sin(u), np.sin(v))
 moon_z = MOON_RADIUS_KM * np.outer(np.ones(np.size(u)), np.cos(v))
 
 ax.plot_surface(moon_x, moon_y, moon_z, color='#808080', alpha=0.35, shade=False, 
-               edgecolor='none', linewidth=0, antialiased=False, rcount=15, ccount=20, 
-               rstride=1, cstride=1)
+               edgecolor='none', linewidth=0, antialiased=False, rstride=1, cstride=1)
 
 # Add start and end markers (simplified for performance)
 ax.scatter(x[0], y[0], z[0], c='green', s=80, marker='o', label='Start', edgecolors='darkgreen', linewidths=1.5)
