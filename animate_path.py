@@ -19,9 +19,9 @@ plt.rcParams['animation.html'] = 'jshtml'  # Better animation performance
 # ============================================================================
 
 MOON_RADIUS_KM = 1737.4  # Actual moon radius in km
-MAX_TRAIL_LENGTH = 75  # Optimized for 60 FPS (shorter = faster)
-NUM_TRAJECTORY_POINTS = 300  # Reduced for ultra-smooth animation
-UPDATE_INTERVAL_MS = 16  # ~60 FPS (16ms per frame)
+MAX_TRAIL_LENGTH = 50  # Optimized for server performance
+NUM_TRAJECTORY_POINTS = 600  # Higher detail trajectory
+UPDATE_INTERVAL_MS = 20  # ~50 FPS (better for server/remote display)
 
 # ============================================================================
 # GENERATE LUNAR ORBITAL TRAJECTORY DATA
@@ -91,7 +91,7 @@ x, y, z, vx, vy, vz, altitude, time_elapsed = generate_lunar_orbit_trajectory(NU
 # SET UP 3D PLOT
 # ============================================================================
 
-fig = plt.figure(figsize=(14, 10))
+fig = plt.figure(figsize=(14, 10), dpi=72)  # Lower DPI for better server performance
 ax = fig.add_subplot(111, projection='3d')
 ax.set_xlabel('X Position (km)', fontsize=11)
 ax.set_ylabel('Y Position (km)', fontsize=11)
@@ -113,9 +113,9 @@ ax.set_zlim(mid_z - max_range, mid_z + max_range)
 # ADD MOON SPHERE
 # ============================================================================
 
-# Create Moon sphere (ultra-low resolution for 60 FPS)
-u = np.linspace(0, 2 * np.pi, 20)
-v = np.linspace(0, np.pi, 15)
+# Create Moon sphere (minimal resolution for server)
+u = np.linspace(0, 2 * np.pi, 15)
+v = np.linspace(0, np.pi, 12)
 moon_x = MOON_RADIUS_KM * np.outer(np.cos(u), np.sin(v))
 moon_y = MOON_RADIUS_KM * np.outer(np.sin(u), np.sin(v))
 moon_z = MOON_RADIUS_KM * np.outer(np.ones(np.size(u)), np.cos(v))
@@ -123,9 +123,9 @@ moon_z = MOON_RADIUS_KM * np.outer(np.ones(np.size(u)), np.cos(v))
 ax.plot_surface(moon_x, moon_y, moon_z, color='#808080', alpha=0.35, shade=False, 
                edgecolor='none', linewidth=0, antialiased=False, rstride=1, cstride=1)
 
-# Add start and end markers (simplified for performance)
-ax.scatter(x[0], y[0], z[0], c='green', s=80, marker='o', label='Start', edgecolors='darkgreen', linewidths=1.5)
-ax.scatter(x[-1], y[-1], z[-1], c='red', s=80, marker='s', label='End', edgecolors='darkred', linewidths=1.5)
+# Add start and end markers (minimal for server)
+ax.scatter(x[0], y[0], z[0], c='green', s=60, marker='o', label='Start')
+ax.scatter(x[-1], y[-1], z[-1], c='red', s=60, marker='s', label='End')
 
 ax.legend(loc='upper right', fontsize=10, framealpha=0.9)
 
@@ -166,7 +166,7 @@ info_text = ax.text2D(0.02, 0.98, '', transform=ax.transAxes,
                      family='monospace')
 
 # Speed display
-speed_text = ax.text2D(0.98, 0.02, 'Speed: 1.0x (60 FPS)', transform=ax.transAxes,
+speed_text = ax.text2D(0.98, 0.02, 'Speed: 1.0x (50 FPS)', transform=ax.transAxes,
                       fontsize=9, verticalalignment='bottom', horizontalalignment='right',
                       bbox=dict(boxstyle='round', facecolor='white', 
                                edgecolor='gray', linewidth=1, alpha=0.9),
@@ -275,27 +275,27 @@ def on_key_press(event):
             anim.event_source.start()
     
     elif event.key == '1':
-        animation_interval = 32
+        animation_interval = 40
         anim.event_source.interval = animation_interval
-        speed_text.set_text('Speed: 0.5x (30 FPS)')
+        speed_text.set_text('Speed: 0.5x (25 FPS)')
         fig.canvas.draw_idle()
     
     elif event.key == '2':
-        animation_interval = 16
+        animation_interval = 20
         anim.event_source.interval = animation_interval
-        speed_text.set_text('Speed: 1.0x (60 FPS)')
+        speed_text.set_text('Speed: 1.0x (50 FPS)')
         fig.canvas.draw_idle()
     
     elif event.key == '3':
-        animation_interval = 11
+        animation_interval = 13
         anim.event_source.interval = animation_interval
-        speed_text.set_text('Speed: 1.5x (90 FPS)')
+        speed_text.set_text('Speed: 1.5x (75 FPS)')
         fig.canvas.draw_idle()
     
     elif event.key == '4':
-        animation_interval = 8
+        animation_interval = 10
         anim.event_source.interval = animation_interval
-        speed_text.set_text('Speed: 2.0x (120 FPS)')
+        speed_text.set_text('Speed: 2.0x (100 FPS)')
         fig.canvas.draw_idle()
     
     elif event.key == '+' or event.key == '=':
