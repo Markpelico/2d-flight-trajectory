@@ -156,8 +156,7 @@ from mpl_toolkits.mplot3d.art3d import Line3DCollection
 trail_collection = None
 
 # Velocity direction arrow (minimal for 60 FPS)
-velocity_arrow, = ax.plot([], [], [], '-', linewidth=1.2, color='#444444', zorder=9, 
-                         solid_capstyle='butt', solid_joinstyle='miter')
+velocity_arrow, = ax.plot([], [], [], '-', linewidth=1.2, color='#444444', zorder=9)
 
 # Telemetry display
 info_text = ax.text2D(0.02, 0.98, '', transform=ax.transAxes, 
@@ -386,8 +385,7 @@ def animate(frame):
         colors = np.column_stack([progress, 1-progress, np.zeros(n_segments), 
                                   np.full(n_segments, 0.85)])
         
-        trail_collection = Line3DCollection(segments, colors=colors, linewidths=2.0, 
-                                           zorder=5, capstyle='butt', joinstyle='miter')
+        trail_collection = Line3DCollection(segments, colors=colors, linewidths=2.0, zorder=5)
         ax.add_collection3d(trail_collection)
     
     # Update velocity direction arrow (points where spacecraft is heading)
