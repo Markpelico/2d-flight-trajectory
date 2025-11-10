@@ -403,7 +403,7 @@ def create_figure(df):
                 xanchor='left', yanchor='bottom',
                 buttons=[
                     dict(
-                        label='▶ Play',
+                        label='Play',
                         method='animate',
                         args=[None, dict(
                             frame=dict(duration=20, redraw=True),
@@ -413,7 +413,7 @@ def create_figure(df):
                         )]
                     ),
                     dict(
-                        label='⏸ Pause',
+                        label='Pause',
                         method='animate',
                         args=[[None], dict(
                             frame=dict(duration=0, redraw=False),
@@ -497,7 +497,7 @@ app = Dash(__name__)
 # Define app layout
 app.layout = html.Div([
     html.Div([
-        html.H3('🚀 Lunar Orbit Trajectory Visualization', 
+        html.H3('Lunar Orbit Trajectory Visualization', 
                 style={'textAlign': 'center', 'color': '#2c3e50', 'marginBottom': '10px'}),
         html.P('Drag to rotate | Right-click to pan | Scroll to zoom | Use controls below to animate',
                style={'textAlign': 'center', 'color': '#7f8c8d', 'fontSize': '14px'})
@@ -533,15 +533,15 @@ app.layout = html.Div([
 
 if __name__ == '__main__':
     print("\n" + "="*70)
-    print("🚀 LUNAR ORBIT TRAJECTORY VISUALIZATION SERVER")
+    print("LUNAR ORBIT TRAJECTORY VISUALIZATION SERVER")
     print("="*70)
-    print(f"📊 Trajectory Points: {NUM_TRAJECTORY_POINTS}")
-    print(f"🌙 Moon Radius: {MOON_RADIUS_KM} km")
-    print(f"🎯 Animation Frames: {len(df)//2}")
+    print(f"Trajectory Points: {NUM_TRAJECTORY_POINTS}")
+    print(f"Moon Radius: {MOON_RADIUS_KM} km")
+    print(f"Animation Frames: {len(df)//2}")
     print("="*70)
-    print("🌐 Server starting on: http://localhost:8050")
-    print("📡 For remote access: ssh -L 8050:localhost:8050 user@server")
-    print("⏹  Press Ctrl+C to stop the server")
+    print("Server: http://localhost:8050")
+    print("Remote access: ssh -L 8050:localhost:8050 user@server")
+    print("Press Ctrl+C to stop")
     print("="*70 + "\n")
     
     app.run_server(debug=False, host='0.0.0.0', port=8050)
