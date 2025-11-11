@@ -293,13 +293,13 @@ plotter.add_light(light2)
 # Camera setup - good viewing angle
 plotter.camera_position = [(150, 150, 100), (0, 0, -10), (0, 0, 1)]
 
-# Add telemetry text
-telemetry_text = plotter.add_text("", position='upper_left', font_size=10, 
+# Add telemetry text (smaller, less intrusive)
+telemetry_text = plotter.add_text("", position='upper_left', font_size=8, 
                                   color='white', font='courier')
 
 controls_text = plotter.add_text(
-    "CONTROLS: SPACE=Pause | Mouse=Rotate | Scroll=Zoom | Q=Quit",
-    position='lower_edge', font_size=9, color='#FFD700'
+    "Mouse=Rotate | Scroll=Zoom | Q=Quit",
+    position='lower_edge', font_size=8, color='#FFD700'
 )
 
 print("\n" + "="*70)
@@ -393,35 +393,17 @@ def update_scene(_caller):
     else:
         phase = "INITIAL APPROACH"
     
-    # Update telemetry with COORDINATES
+    # Update telemetry with COORDINATES (compact format)
     telemetry = (
-        f"═══════════════════════════════════\n"
-        f"NASA ISS DOCKING TELEMETRY\n"
-        f"═══════════════════════════════════\n"
-        f"Mission Time:    {mission_time:7.1f} s\n"
-        f"Phase:           {phase}\n"
-        f"───────────────────────────────────\n"
-        f"POSITION (meters):\n"
-        f"  X: {pos[0]:8.2f} m\n"
-        f"  Y: {pos[1]:8.2f} m\n"
-        f"  Z: {pos[2]:8.2f} m\n"
-        f"───────────────────────────────────\n"
-        f"Range to Port:   {distance:7.2f} m\n"
-        f"Closure Rate:    {speed:7.3f} m/s\n"
-        f"                 ({speed*100:6.2f} cm/s)\n"
-        f"Alignment Error: {alignment:7.3f}°\n"
-        f"───────────────────────────────────\n"
-        f"ATTITUDE (degrees):\n"
-        f"  Roll:  {np.degrees(rot[0]):7.3f}°\n"
-        f"  Pitch: {np.degrees(rot[1]):7.3f}°\n"
-        f"  Yaw:   {np.degrees(rot[2]):7.3f}°\n"
-        f"───────────────────────────────────\n"
-        f"Frame: {frame+1:4d}/{TOTAL_FRAMES}"
+        f"ISS DOCKING | T+{mission_time:5.1f}s | {phase}\n"
+        f"POSITION: X:{pos[0]:6.1f} Y:{pos[1]:6.1f} Z:{pos[2]:6.1f}m\n"
+        f"RANGE: {distance:5.1f}m | SPEED: {speed*100:4.1f}cm/s\n"
+        f"ATTITUDE: R:{np.degrees(rot[0]):4.1f}° P:{np.degrees(rot[1]):4.1f}° Y:{np.degrees(rot[2]):4.1f}°"
     )
     
     plotter.remove_actor(telemetry_text, render=False)
     telemetry_text_new = plotter.add_text(telemetry, position='upper_left', 
-                                         font_size=9, color='white', font='courier')
+                                         font_size=8, color='white', font='courier')
     
     # Render once after all updates
     plotter.render()
