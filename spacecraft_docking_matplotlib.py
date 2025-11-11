@@ -395,21 +395,60 @@ def animate(frame):
     global station_mesh, craft_mesh, trail_collection, thrust_cone
     global station_docking_port, craft_docking_port, prediction_line
     
-    # Clear old meshes
-    if station_mesh is not None:
-        station_mesh.remove()
-    if craft_mesh is not None:
-        craft_mesh.remove()
-    if station_docking_port is not None:
-        station_docking_port.remove()
-    if craft_docking_port is not None:
-        craft_docking_port.remove()
-    if thrust_cone is not None:
-        thrust_cone.remove()
-    if trail_collection is not None:
-        trail_collection.remove()
-    if prediction_line is not None:
-        prediction_line.remove()
+    # Clear old meshes (safely handle both single objects and lists)
+    try:
+        if station_mesh is not None:
+            station_mesh.remove()
+    except (ValueError, AttributeError):
+        pass
+    
+    try:
+        if craft_mesh is not None:
+            craft_mesh.remove()
+    except (ValueError, AttributeError):
+        pass
+    
+    try:
+        if station_docking_port is not None:
+            if isinstance(station_docking_port, list):
+                for item in station_docking_port:
+                    item.remove()
+            else:
+                station_docking_port.remove()
+    except (ValueError, AttributeError):
+        pass
+    
+    try:
+        if craft_docking_port is not None:
+            if isinstance(craft_docking_port, list):
+                for item in craft_docking_port:
+                    item.remove()
+            else:
+                craft_docking_port.remove()
+    except (ValueError, AttributeError):
+        pass
+    
+    try:
+        if thrust_cone is not None:
+            if isinstance(thrust_cone, list):
+                for item in thrust_cone:
+                    item.remove()
+            else:
+                thrust_cone.remove()
+    except (ValueError, AttributeError):
+        pass
+    
+    try:
+        if trail_collection is not None:
+            trail_collection.remove()
+    except (ValueError, AttributeError):
+        pass
+    
+    try:
+        if prediction_line is not None:
+            prediction_line.remove()
+    except (ValueError, AttributeError):
+        pass
     
     # Current state
     craft_pos = [data['craft']['x'][frame], data['craft']['y'][frame], data['craft']['z'][frame]]
@@ -433,7 +472,7 @@ def animate(frame):
     port_x = port_r * np.cos(port_theta)
     port_y = port_r * np.sin(port_theta)
     port_z = np.full_like(port_x, 3)
-    station_docking_port = ax.plot(port_x, port_y, port_z, 'yellow', linewidth=3, zorder=10)
+    station_docking_port = ax.plot(port_x, port_y, port_z, 'yellow', linewidth=3, zorder=10)[0]
     
     # ===== ACTIVE SPACECRAFT =====
     cx, cy, cz = create_spacecraft_mesh(scale=1.0, segments=12)
@@ -453,7 +492,7 @@ def animate(frame):
     craft_port_y = port_rotated[:, 1].flatten() + craft_pos[1]
     craft_port_z = port_rotated[:, 2].flatten() + craft_pos[2]
     craft_docking_port = ax.plot(craft_port_x, craft_port_y, craft_port_z, 
-                                craft_color, linewidth=3, zorder=10)
+                                craft_color, linewidth=3, zorder=10)[0]
     
     # ===== THRUST PLUME =====
     if thrust > 0.01:  # Only show when thrusting
@@ -474,7 +513,7 @@ def animate(frame):
             thrust_cone = ax.plot([thrust_start[0], thrust_end[0]],
                                  [thrust_start[1], thrust_end[1]],
                                  [thrust_start[2], thrust_end[2]],
-                                 color='#ff6b35', linewidth=4, alpha=0.8, zorder=5)
+                                 color='#ff6b35', linewidth=4, alpha=0.8, zorder=5)[0]
     
     # ===== TRAJECTORY TRAIL =====
     trail_x.append(craft_pos[0])
