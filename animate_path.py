@@ -7,42 +7,26 @@ from matplotlib.patches import FancyArrowPatch, Circle
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.widgets import Button
 
-# Aggressive performance optimizations
+# performance tweaks to make things run smoother on servers
 plt.rcParams['path.simplify'] = True
-plt.rcParams['path.simplify_threshold'] = 0.5  # More aggressive simplification
-plt.rcParams['agg.path.chunksize'] = 20000  # Larger chunks for faster rendering
-plt.rcParams['figure.max_open_warning'] = 0  # Disable warnings
-plt.rcParams['animation.html'] = 'jshtml'  # Better animation performance
+plt.rcParams['path.simplify_threshold'] = 0.5
+plt.rcParams['agg.path.chunksize'] = 20000
+plt.rcParams['figure.max_open_warning'] = 0
+plt.rcParams['animation.html'] = 'jshtml'
 
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
-
-MOON_RADIUS_KM = 1737.4  # Actual moon radius in km
-MAX_TRAIL_LENGTH = 50  # Optimized for server performance
-NUM_TRAJECTORY_POINTS = 600  # Higher detail trajectory
-UPDATE_INTERVAL_MS = 20  # ~50 FPS (better for server/remote display)
-
-# ============================================================================
-# GENERATE LUNAR ORBITAL TRAJECTORY DATA
-# ============================================================================
+MOON_RADIUS_KM = 1737.4 
+MAX_TRAIL_LENGTH = 50  # keeps the trail short so it doesnt lag
+NUM_TRAJECTORY_POINTS = 600  # more points = smoother orbit
+UPDATE_INTERVAL_MS = 20  # runs at 50 FPS
 
 def generate_lunar_orbit_trajectory(num_points=500):
-    """
-    Generate realistic 3D lunar orbit trajectory.
     
-    Orbital mechanics:
-    - Orbit altitude: 100 km above moon surface
-    - Orbit period: 2 hours
-    - Number of orbits: 2
-    - Inclination: 15 degrees
-    """
-    # Time array - 2 hour mission
+    # lets say 2 hour mission (in seconds)
     time_seconds = np.linspace(0, 7200, num_points)
     t_norm = np.linspace(0, 1, num_points)
     
     # Orbital parameters
-    orbit_altitude = 100  # km above surface
+    orbit_altitude = 100  
     orbit_radius = MOON_RADIUS_KM + orbit_altitude
     
     # Complete 2 orbits
@@ -53,14 +37,12 @@ def generate_lunar_orbit_trajectory(num_points=500):
     eccentricity = 0.05
     r = orbit_radius * (1 - eccentricity * np.cos(theta))
     
-    # Add significant altitude variation for each orbit (prevents overlap)
-    # Create clear spiral effect - altitude increases throughout mission
-    altitude_variation = 100 * t_norm  # Increases from 0 to 100 km
-    # Also add sinusoidal variation per orbit
-    altitude_variation += 30 * np.sin(n_orbits * theta)
+    # add altitude variation so orbits dont overlap
+    altitude_variation = 100 * t_norm  # gradually increases
+    altitude_variation += 30 * np.sin(n_orbits * theta) # adds some wave to it
     r = r + altitude_variation
     
-    # Position in orbital plane
+    # calculate the x y coords based off the current r and angle
     x = r * np.cos(theta)
     y = r * np.sin(theta)
     
@@ -69,7 +51,7 @@ def generate_lunar_orbit_trajectory(num_points=500):
     z = r * np.sin(theta) * np.sin(inclination)
     y = r * np.sin(theta) * np.cos(inclination)
     
-    # Add small perturbations
+    # add tiny random movements to make it look more realistic
     x += np.random.normal(0, 0.1, num_points)
     y += np.random.normal(0, 0.1, num_points)
     z += np.random.normal(0, 0.05, num_points)
@@ -79,19 +61,15 @@ def generate_lunar_orbit_trajectory(num_points=500):
     vy = np.gradient(y, time_seconds)
     vz = np.gradient(z, time_seconds)
     
-    # Calculate altitude above surface
+    # Calculate altitude above surface for the spacecraft
     altitude = np.sqrt(x**2 + y**2 + z**2) - MOON_RADIUS_KM
     
     return x, y, z, vx, vy, vz, altitude, time_seconds
 
-# Generate the trajectory data
 x, y, z, vx, vy, vz, altitude, time_elapsed = generate_lunar_orbit_trajectory(NUM_TRAJECTORY_POINTS)
 
-# ============================================================================
 # SET UP 3D PLOT
-# ============================================================================
-
-fig = plt.figure(figsize=(14, 10), dpi=72)  # Lower DPI for better server performance
+fig = plt.figure(figsize=(14, 10), dpi=72)
 ax = fig.add_subplot(111, projection='3d')
 ax.set_xlabel('X Position (km)', fontsize=11)
 ax.set_ylabel('Y Position (km)', fontsize=11)
@@ -109,11 +87,8 @@ ax.set_xlim(mid_x - max_range, mid_x + max_range)
 ax.set_ylim(mid_y - max_range, mid_y + max_range)
 ax.set_zlim(mid_z - max_range, mid_z + max_range)
 
-# ============================================================================
 # ADD MOON SPHERE
-# ============================================================================
-
-# Create Moon sphere (minimal resolution for server)
+# using lower resolution so it runs better on servers
 u = np.linspace(0, 2 * np.pi, 15)
 v = np.linspace(0, np.pi, 12)
 moon_x = MOON_RADIUS_KM * np.outer(np.cos(u), np.sin(v))
@@ -123,7 +98,7 @@ moon_z = MOON_RADIUS_KM * np.outer(np.ones(np.size(u)), np.cos(v))
 ax.plot_surface(moon_x, moon_y, moon_z, color='#808080', alpha=0.35, shade=False, 
                edgecolor='none', linewidth=0, antialiased=False, rstride=1, cstride=1)
 
-# Add start and end markers (minimal for server)
+# Add start and end markers
 ax.scatter(x[0], y[0], z[0], c='green', s=60, marker='o', label='Start')
 ax.scatter(x[-1], y[-1], z[-1], c='red', s=60, marker='s', label='End')
 
@@ -143,11 +118,9 @@ ax.text2D(0.02, 0.02, controls_text, transform=ax.transAxes,
                   edgecolor='gray', linewidth=1, alpha=0.9),
          family='monospace')
 
-# ============================================================================
 # CREATE ANIMATED OBJECTS
-# ============================================================================
 
-# Spacecraft marker (optimized size)
+# Spacecraft marker
 spacecraft, = ax.plot([], [], [], 'o', markersize=9, color='black', 
                      markeredgecolor='gray', markeredgewidth=1.2, zorder=10)
 
@@ -155,7 +128,7 @@ spacecraft, = ax.plot([], [], [], 'o', markersize=9, color='black',
 from mpl_toolkits.mplot3d.art3d import Line3DCollection
 trail_collection = None
 
-# Velocity direction arrow (minimal for 60 FPS)
+# Velocity direction arrow
 velocity_arrow, = ax.plot([], [], [], '-', linewidth=1.2, color='#444444', zorder=9)
 
 # Telemetry display
@@ -177,12 +150,10 @@ trail_x = []
 trail_y = []
 trail_z = []
 
-# Animation speed control (60 FPS target)
-animation_interval = UPDATE_INTERVAL_MS  # 16ms = ~60 FPS
+# Animation speed control
+animation_interval = UPDATE_INTERVAL_MS
 
-# ============================================================================
-# CLICK TO SHOW COORDINATES (RELIABLE METHOD)
-# ============================================================================
+# CLICK TO SHOW COORDINATES
 
 # Make trajectory points clickable
 trajectory_scatter = ax.scatter(x, y, z, s=1, alpha=0.01, picker=True, pickradius=15)
@@ -219,27 +190,23 @@ def on_pick(event):
 
 fig.canvas.mpl_connect('pick_event', on_pick)
 
-# ============================================================================
 # MOUSE WHEEL ZOOM
-# ============================================================================
 
 def on_scroll(event):
-    """Buttery smooth zoom with mouse wheel (optimized for 60 FPS feel)"""
+    """Zoom in/out with mouse wheel"""
     if event.inaxes == ax:
-        # Smoother zoom factor for better control
+        # smoother zoom
         if event.button == 'up':
-            scale_factor = 0.92  # Gentler zoom in
+            scale_factor = 0.92
         elif event.button == 'down':
-            scale_factor = 1.08  # Gentler zoom out
+            scale_factor = 1.08
         else:
             return
         
-        # Fast axis limit retrieval
         xlim = ax.get_xlim3d()
         ylim = ax.get_ylim3d()
         zlim = ax.get_zlim3d()
         
-        # Vectorized center calculation
         centers = np.array([(xlim[0] + xlim[1]) / 2,
                            (ylim[0] + ylim[1]) / 2,
                            (zlim[0] + zlim[1]) / 2])
@@ -248,7 +215,6 @@ def on_scroll(event):
                           (ylim[1] - ylim[0]) * scale_factor / 2,
                           (zlim[1] - zlim[0]) * scale_factor / 2])
         
-        # Apply zoom in one go
         ax.set_xlim3d([centers[0] - ranges[0], centers[0] + ranges[0]])
         ax.set_ylim3d([centers[1] - ranges[1], centers[1] + ranges[1]])
         ax.set_zlim3d([centers[2] - ranges[2], centers[2] + ranges[2]])
@@ -257,9 +223,7 @@ def on_scroll(event):
 
 fig.canvas.mpl_connect('scroll_event', on_scroll)
 
-# ============================================================================
 # KEYBOARD CONTROLS - SPEED AND PAUSE
-# ============================================================================
 
 is_paused = False
 
@@ -299,7 +263,7 @@ def on_key_press(event):
         fig.canvas.draw_idle()
     
     elif event.key == '+' or event.key == '=':
-        # Smooth keyboard zoom in
+        # Zoom in
         xlim, ylim, zlim = ax.get_xlim3d(), ax.get_ylim3d(), ax.get_zlim3d()
         centers = np.array([(xlim[0]+xlim[1])/2, (ylim[0]+ylim[1])/2, (zlim[0]+zlim[1])/2])
         ranges = np.array([(xlim[1]-xlim[0])*0.92/2, (ylim[1]-ylim[0])*0.92/2, (zlim[1]-zlim[0])*0.92/2])
@@ -310,7 +274,7 @@ def on_key_press(event):
         fig.canvas.draw_idle()
     
     elif event.key == '-' or event.key == '_':
-        # Smooth keyboard zoom out
+        # Zoom out
         xlim, ylim, zlim = ax.get_xlim3d(), ax.get_ylim3d(), ax.get_zlim3d()
         centers = np.array([(xlim[0]+xlim[1])/2, (ylim[0]+ylim[1])/2, (zlim[0]+zlim[1])/2])
         ranges = np.array([(xlim[1]-xlim[0])*1.08/2, (ylim[1]-ylim[0])*1.08/2, (zlim[1]-zlim[0])*1.08/2])
@@ -329,9 +293,7 @@ def on_key_press(event):
 
 fig.canvas.mpl_connect('key_press_event', on_key_press)
 
-# ============================================================================
 # ANIMATION FUNCTIONS
-# ============================================================================
 
 def init():
     """Initialize animation"""
@@ -359,7 +321,7 @@ def animate(frame):
     spacecraft.set_data([current_x], [current_y])
     spacecraft.set_3d_properties([current_z])
     
-    # Update trail (path traveled so far) with length limit
+    # Update trail (path traveled so far)
     trail_x.append(current_x)
     trail_y.append(current_y)
     trail_z.append(current_z)
@@ -370,16 +332,16 @@ def animate(frame):
         trail_y.pop(0)
         trail_z.pop(0)
     
-    # Remove old trail collection
+    # Remove old trail
     if trail_collection is not None:
         trail_collection.remove()
     
-    # Create trail with green-to-red gradient (optimized for 60 FPS)
+    # Create trail with green-to-red gradient
     if len(trail_x) > 1:
         points = np.array([trail_x, trail_y, trail_z]).T.reshape(-1, 1, 3)
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
         
-        # Simplified gradient calculation (vectorized for speed)
+        # gradient calculation (vectorized so its fast)
         n_segments = len(segments)
         progress = np.linspace(0, 1, n_segments)
         colors = np.column_stack([progress, 1-progress, np.zeros(n_segments), 
@@ -391,7 +353,7 @@ def animate(frame):
     # Update velocity direction arrow (points where spacecraft is heading)
     vel_mag = np.sqrt(vx[frame]**2 + vy[frame]**2 + vz[frame]**2)
     if vel_mag > 0:
-        arrow_length = 400  # km (longer for visibility)
+        arrow_length = 400  # km
         dir_x = vx[frame] / vel_mag * arrow_length
         dir_y = vy[frame] / vel_mag * arrow_length
         dir_z = vz[frame] / vel_mag * arrow_length
@@ -403,7 +365,7 @@ def animate(frame):
         velocity_arrow.set_data([], [])
         velocity_arrow.set_3d_properties([])
     
-    # Update telemetry display (matches Plotly format)
+    # Update telemetry display
     info_text.set_text(
         f'TELEMETRY\n'
         f'Time: {time_elapsed[frame]:.1f} s\n'
@@ -413,9 +375,7 @@ def animate(frame):
     
     return spacecraft, velocity_arrow, info_text
 
-# ============================================================================
 # CREATE AND RUN ANIMATION
-# ============================================================================
 
 anim = animation.FuncAnimation(
     fig, 
@@ -423,7 +383,7 @@ anim = animation.FuncAnimation(
     init_func=init,
     frames=len(x),
     interval=animation_interval,
-    blit=False,  # Set to False to prevent play/pause issues with 3D
+    blit=False,  # prevents play/pause issues with 3D
     repeat=True,
     cache_frame_data=False
 )
