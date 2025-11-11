@@ -43,7 +43,7 @@ MISSION_DURATION = 180  # seconds
 NUM_POINTS = 900  # 5 points per second for smooth animation
 UPDATE_INTERVAL_MS = 20  # 50 FPS
 PREDICTION_TIME = 7  # seconds ahead
-MAX_TRAIL_LENGTH = 150  # trajectory trail points
+KEEP_FULL_TRAIL = True  # Keep entire trajectory visible
 
 # ============================================================================
 # SIMULATION PHYSICS
@@ -51,8 +51,8 @@ MAX_TRAIL_LENGTH = 150  # trajectory trail points
 
 def simulate_docking_approach(num_points=900):
     """
-    Simulate spacecraft approaching docking station with rotation alignment.
-    Uses waypoints for reliable visualization with physics-based velocity.
+    Simulate spacecraft approaching docking station from below/side.
+    Station at origin, craft approaches from -X, -Z (below and to the side).
     """
     time = np.linspace(0, MISSION_DURATION, num_points)
     dt = time[1] - time[0]
@@ -65,7 +65,7 @@ def simulate_docking_approach(num_points=900):
     station_pitch = np.zeros(num_points)
     station_yaw = np.zeros(num_points)
     
-    # Active spacecraft trajectory - strategic waypoints
+    # Active spacecraft trajectory - approach from below and side
     craft_x = np.zeros(num_points)
     craft_y = np.zeros(num_points)
     craft_z = np.zeros(num_points)
@@ -73,45 +73,48 @@ def simulate_docking_approach(num_points=900):
     craft_pitch = np.zeros(num_points)
     craft_yaw = np.zeros(num_points)
     
-    # Phase 1: Initial Approach (0-60s) - Large arc from starting position
-    phase1_end = int(num_points * 60 / MISSION_DURATION)
-    t1 = np.linspace(0, 1, phase1_end)
-    craft_x[:phase1_end] = -INITIAL_SEPARATION * (1 - t1**2)
-    craft_y[:phase1_end] = 200 * np.sin(np.pi * t1) * (1 - t1)
-    craft_z[:phase1_end] = 150 * np.cos(2 * np.pi * t1) * (1 - t1)
+    # Full mission timeline
+    t = np.linspace(0, 1, num_points)
     
-    # Rotation during phase 1 - gradually align
-    craft_roll[:phase1_end] = np.pi * (1 - t1)
-    craft_pitch[:phase1_end] = np.pi/4 * (1 - t1**1.5)
-    craft_yaw[:phase1_end] = np.pi/2 * (1 - t1)
+    # Phase 1: Initial Approach (0-40%) - Large sweeping arc from below
+    phase1_mask = t <= 0.4
+    t1 = t[phase1_mask] / 0.4
+    craft_x[phase1_mask] = -INITIAL_SEPARATION * (1 - t1**1.8)
+    craft_y[phase1_mask] = -300 * np.sin(np.pi * t1**1.2) * (1 - t1)
+    craft_z[phase1_mask] = -400 * (1 - t1**1.5)  # Coming from below
     
-    # Phase 2: Mid-Course (60-120s) - Refined approach with minor corrections
-    phase2_start = phase1_end
-    phase2_end = int(num_points * 120 / MISSION_DURATION)
-    phase2_len = phase2_end - phase2_start
-    t2 = np.linspace(0, 1, phase2_len)
+    # Rotation during phase 1
+    craft_roll[phase1_mask] = np.pi * 0.8 * (1 - t1**1.5)
+    craft_pitch[phase1_mask] = -np.pi/3 * (1 - t1**1.3)  # Pitch up to look at station
+    craft_yaw[phase1_mask] = np.pi/4 * (1 - t1**1.5)
     
-    craft_x[phase2_start:phase2_end] = craft_x[phase2_start-1] * (1 - t2**1.5)
-    craft_y[phase2_start:phase2_end] = craft_y[phase2_start-1] * (1 - t2**2)
-    craft_z[phase2_start:phase2_end] = craft_z[phase2_start-1] * (1 - t2**2)
+    # Phase 2: Mid-Course Correction (40-70%) - Arc upward to station level
+    phase2_mask = (t > 0.4) & (t <= 0.7)
+    t2 = (t[phase2_mask] - 0.4) / 0.3
+    phase1_end_idx = np.sum(phase1_mask) - 1
     
-    # Fine rotation alignment
-    craft_roll[phase2_start:phase2_end] = craft_roll[phase2_start-1] * (1 - t2**2)
-    craft_pitch[phase2_start:phase2_end] = craft_pitch[phase2_start-1] * (1 - t2**2)
-    craft_yaw[phase2_start:phase2_end] = craft_yaw[phase2_start-1] * (1 - t2**2)
+    craft_x[phase2_mask] = craft_x[phase1_end_idx] * (1 - t2**1.5)
+    craft_y[phase2_mask] = craft_y[phase1_end_idx] * (1 - t2**1.8) + 150 * np.sin(np.pi * t2) * (1 - t2)
+    craft_z[phase2_mask] = craft_z[phase1_end_idx] * (1 - t2**2)  # Rising to station level
     
-    # Phase 3: Final Approach (120-180s) - Slow straight-line docking
-    phase3_start = phase2_end
-    t3 = np.linspace(0, 1, num_points - phase3_start)
+    # Fine alignment rotation
+    craft_roll[phase2_mask] = craft_roll[phase1_end_idx] * (1 - t2**2)
+    craft_pitch[phase2_mask] = craft_pitch[phase1_end_idx] * (1 - t2**2.5)
+    craft_yaw[phase2_mask] = craft_yaw[phase1_end_idx] * (1 - t2**2)
     
-    craft_x[phase3_start:] = craft_x[phase3_start-1] * (1 - t3**1.2)
-    craft_y[phase3_start:] = craft_y[phase3_start-1] * (1 - t3**1.5)
-    craft_z[phase3_start:] = craft_z[phase3_start-1] * (1 - t3**1.5)
+    # Phase 3: Final Approach (70-100%) - Slow straight-line final docking
+    phase3_mask = t > 0.7
+    t3 = (t[phase3_mask] - 0.7) / 0.3
+    phase2_end_idx = np.sum(phase1_mask) + np.sum(phase2_mask) - 1
     
-    # Maintain alignment in final phase
-    craft_roll[phase3_start:] = 0
-    craft_pitch[phase3_start:] = 0
-    craft_yaw[phase3_start:] = 0
+    craft_x[phase3_mask] = craft_x[phase2_end_idx] * (1 - t3**1.5)
+    craft_y[phase3_mask] = craft_y[phase2_end_idx] * (1 - t3**2)
+    craft_z[phase3_mask] = craft_z[phase2_end_idx] * (1 - t3**2)
+    
+    # Perfect alignment in final phase
+    craft_roll[phase3_mask] = craft_roll[phase2_end_idx] * (1 - t3**3)
+    craft_pitch[phase3_mask] = craft_pitch[phase2_end_idx] * (1 - t3**3)
+    craft_yaw[phase3_mask] = craft_yaw[phase2_end_idx] * (1 - t3**3)
     
     # Calculate velocities
     craft_vx = np.gradient(craft_x, dt)
@@ -121,11 +124,11 @@ def simulate_docking_approach(num_points=900):
     # Calculate distance and alignment
     distance = np.sqrt(craft_x**2 + craft_y**2 + craft_z**2)
     
-    # Alignment angle (simplified - angle from ideal docking orientation)
+    # Alignment angle
     alignment_rad = np.sqrt(craft_roll**2 + craft_pitch**2 + craft_yaw**2)
     alignment_deg = np.degrees(alignment_rad)
     
-    # Thrust calculation (non-zero when accelerating)
+    # Thrust calculation
     accel_x = np.gradient(craft_vx, dt)
     accel_y = np.gradient(craft_vy, dt)
     accel_z = np.gradient(craft_vz, dt)
@@ -236,10 +239,10 @@ ax.set_title('SPACECRAFT DOCKING SIMULATION\nAutonomous Approach with Alignment 
              fontsize=14, fontweight='bold', pad=20)
 ax.grid(True, alpha=0.3)
 
-# Set view limits
-ax.set_xlim(-600, 100)
-ax.set_ylim(-350, 350)
-ax.set_zlim(-350, 350)
+# Set view limits to contain entire trajectory
+ax.set_xlim(-550, 50)
+ax.set_ylim(-400, 400)
+ax.set_zlim(-450, 50)
 
 # ============================================================================
 # ANIMATED OBJECTS
@@ -253,6 +256,13 @@ station_docking_port = None
 craft_mesh = None
 craft_docking_port = None
 
+# Ghost spacecraft (prediction)
+ghost_mesh = None
+ghost_docking_port = None
+
+# Velocity arrow
+velocity_arrow = None
+
 # Thrust plume
 thrust_cone = None
 
@@ -260,7 +270,7 @@ thrust_cone = None
 trail_collection = None
 trail_x, trail_y, trail_z = [], [], []
 
-# Prediction ghost path
+# Prediction ghost path line
 prediction_line = None
 
 # Telemetry display
@@ -394,61 +404,26 @@ def animate(frame):
     """Update animation for each frame"""
     global station_mesh, craft_mesh, trail_collection, thrust_cone
     global station_docking_port, craft_docking_port, prediction_line
+    global ghost_mesh, ghost_docking_port, velocity_arrow
     
-    # Clear old meshes (safely handle both single objects and lists)
-    try:
-        if station_mesh is not None:
-            station_mesh.remove()
-    except (ValueError, AttributeError):
-        pass
+    # Clear old objects (safely handle both single objects and lists)
+    for obj in [station_mesh, craft_mesh, ghost_mesh, velocity_arrow, trail_collection, prediction_line]:
+        try:
+            if obj is not None:
+                obj.remove()
+        except (ValueError, AttributeError):
+            pass
     
-    try:
-        if craft_mesh is not None:
-            craft_mesh.remove()
-    except (ValueError, AttributeError):
-        pass
-    
-    try:
-        if station_docking_port is not None:
-            if isinstance(station_docking_port, list):
-                for item in station_docking_port:
-                    item.remove()
-            else:
-                station_docking_port.remove()
-    except (ValueError, AttributeError):
-        pass
-    
-    try:
-        if craft_docking_port is not None:
-            if isinstance(craft_docking_port, list):
-                for item in craft_docking_port:
-                    item.remove()
-            else:
-                craft_docking_port.remove()
-    except (ValueError, AttributeError):
-        pass
-    
-    try:
-        if thrust_cone is not None:
-            if isinstance(thrust_cone, list):
-                for item in thrust_cone:
-                    item.remove()
-            else:
-                thrust_cone.remove()
-    except (ValueError, AttributeError):
-        pass
-    
-    try:
-        if trail_collection is not None:
-            trail_collection.remove()
-    except (ValueError, AttributeError):
-        pass
-    
-    try:
-        if prediction_line is not None:
-            prediction_line.remove()
-    except (ValueError, AttributeError):
-        pass
+    for obj_list in [station_docking_port, craft_docking_port, ghost_docking_port, thrust_cone]:
+        try:
+            if obj_list is not None:
+                if isinstance(obj_list, list):
+                    for item in obj_list:
+                        item.remove()
+                else:
+                    obj_list.remove()
+        except (ValueError, AttributeError):
+            pass
     
     # Current state
     craft_pos = [data['craft']['x'][frame], data['craft']['y'][frame], data['craft']['z'][frame]]
@@ -515,35 +490,75 @@ def animate(frame):
                                  [thrust_start[2], thrust_end[2]],
                                  color='#ff6b35', linewidth=4, alpha=0.8, zorder=5)[0]
     
-    # ===== TRAJECTORY TRAIL =====
+    # ===== VELOCITY ARROW (DYNAMIC - POINTS WHERE SPACECRAFT IS HEADING) =====
+    vel_mag = np.sqrt(data['craft']['vx'][frame]**2 + 
+                     data['craft']['vy'][frame]**2 + 
+                     data['craft']['vz'][frame]**2)
+    if vel_mag > 0.1:
+        arrow_length = 80  # meters
+        arrow_end = [craft_pos[0] + data['craft']['vx'][frame] / vel_mag * arrow_length,
+                     craft_pos[1] + data['craft']['vy'][frame] / vel_mag * arrow_length,
+                     craft_pos[2] + data['craft']['vz'][frame] / vel_mag * arrow_length]
+        velocity_arrow = ax.plot([craft_pos[0], arrow_end[0]],
+                                [craft_pos[1], arrow_end[1]],
+                                [craft_pos[2], arrow_end[2]],
+                                color='#3498db', linewidth=3, alpha=0.9, zorder=8)[0]
+    
+    # ===== TRAJECTORY TRAIL (FULL PATH TRAVELED) =====
     trail_x.append(craft_pos[0])
     trail_y.append(craft_pos[1])
     trail_z.append(craft_pos[2])
     
-    if len(trail_x) > MAX_TRAIL_LENGTH:
-        trail_x.pop(0)
-        trail_y.pop(0)
-        trail_z.pop(0)
-    
     if len(trail_x) > 1:
         points = np.array([trail_x, trail_y, trail_z]).T.reshape(-1, 1, 3)
         segments = np.concatenate([points[:-1], points[1:]], axis=1)
-        colors = ['cyan'] * len(segments)
+        
+        # Gradient from cyan to blue
+        n_segments = len(segments)
+        colors = [[0, 0.7, 1.0 - 0.3*i/n_segments, 0.7] for i in range(n_segments)]
         trail_collection = Line3DCollection(segments, colors=colors, linewidths=2, 
-                                           alpha=0.6, zorder=3)
+                                           alpha=0.7, zorder=3)
         ax.add_collection3d(trail_collection)
     
-    # ===== PREDICTION GHOST PATH (7 seconds ahead) =====
+    # ===== PREDICTION: GHOST SPACECRAFT (7 seconds ahead) =====
     fps = 1000 / animation_interval
     prediction_frames = int(PREDICTION_TIME * fps)
-    end_idx = min(frame + prediction_frames, len(data['time']) - 1)
+    ghost_idx = min(frame + prediction_frames, len(data['time']) - 1)
     
-    if frame < len(data['time']) - prediction_frames:
-        pred_x = data['craft']['x'][frame:end_idx:5]  # Subsample for performance
-        pred_y = data['craft']['y'][frame:end_idx:5]
-        pred_z = data['craft']['z'][frame:end_idx:5]
-        prediction_line = ax.plot(pred_x, pred_y, pred_z, '--', 
-                                 color='white', linewidth=2, alpha=0.4, zorder=2)[0]
+    if frame < len(data['time']) - 10:  # Only show if enough frames ahead
+        ghost_pos = [data['craft']['x'][ghost_idx], 
+                    data['craft']['y'][ghost_idx], 
+                    data['craft']['z'][ghost_idx]]
+        ghost_rot = [data['craft']['roll'][ghost_idx], 
+                    data['craft']['pitch'][ghost_idx], 
+                    data['craft']['yaw'][ghost_idx]]
+        
+        # Ghost spacecraft mesh (semi-transparent)
+        gx, gy, gz = create_spacecraft_mesh(scale=1.0, segments=8)
+        gx_rot, gy_rot, gz_rot = rotate_mesh(gx, gy, gz, ghost_rot[0], ghost_rot[1], ghost_rot[2])
+        gx_final, gy_final, gz_final = translate_mesh(gx_rot, gy_rot, gz_rot, ghost_pos)
+        
+        ghost_color = craft_color if data['craft']['alignment'][ghost_idx] < 10 else '#e74c3c'
+        ghost_mesh = ax.plot_surface(gx_final, gy_final, gz_final, color=ghost_color,
+                                    alpha=0.25, shade=False, linewidth=0, antialiased=False)
+        
+        # Ghost docking port
+        ghost_port_rotated = np.array([rotate_mesh(np.array([port_r * np.cos(t)]), 
+                                                   np.array([port_r * np.sin(t)]), 
+                                                   np.array([-15]),
+                                                   ghost_rot[0], ghost_rot[1], ghost_rot[2]) 
+                                      for t in np.linspace(0, 2*np.pi, 15)])
+        ghost_port_x = ghost_port_rotated[:, 0].flatten() + ghost_pos[0]
+        ghost_port_y = ghost_port_rotated[:, 1].flatten() + ghost_pos[1]
+        ghost_port_z = ghost_port_rotated[:, 2].flatten() + ghost_pos[2]
+        ghost_docking_port = ax.plot(ghost_port_x, ghost_port_y, ghost_port_z,
+                                     color=ghost_color, linewidth=2, alpha=0.3, zorder=4)[0]
+        
+        # Prediction line connecting current to ghost
+        prediction_line = ax.plot([craft_pos[0], ghost_pos[0]],
+                                 [craft_pos[1], ghost_pos[1]],
+                                 [craft_pos[2], ghost_pos[2]],
+                                 '--', color='white', linewidth=1.5, alpha=0.4, zorder=2)[0]
     
     # ===== TELEMETRY =====
     time_to_dock = MISSION_DURATION - current_time
