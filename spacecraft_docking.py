@@ -133,27 +133,39 @@ def create_docking_port_mesh(scale=1.0):
 def rotate_mesh(x, y, z, roll, pitch, yaw):
     """
     Rotate mesh using Euler angles (in radians).
-    Returns rotated coordinates.
+    Returns rotated coordinates with overflow protection.
     """
-    # Rotation matrices
+    # Clamp angles to prevent overflow
+    roll = np.clip(roll, -2*np.pi, 2*np.pi)
+    pitch = np.clip(pitch, -2*np.pi, 2*np.pi)
+    yaw = np.clip(yaw, -2*np.pi, 2*np.pi)
+    
+    # Rotation matrices with safe trig functions
+    cos_r, sin_r = np.cos(roll), np.sin(roll)
+    cos_p, sin_p = np.cos(pitch), np.sin(pitch)
+    cos_y, sin_y = np.cos(yaw), np.sin(yaw)
+    
     Rx = np.array([[1, 0, 0],
-                   [0, np.cos(roll), -np.sin(roll)],
-                   [0, np.sin(roll), np.cos(roll)]])
+                   [0, cos_r, -sin_r],
+                   [0, sin_r, cos_r]], dtype=np.float64)
     
-    Ry = np.array([[np.cos(pitch), 0, np.sin(pitch)],
+    Ry = np.array([[cos_p, 0, sin_p],
                    [0, 1, 0],
-                   [-np.sin(pitch), 0, np.cos(pitch)]])
+                   [-sin_p, 0, cos_p]], dtype=np.float64)
     
-    Rz = np.array([[np.cos(yaw), -np.sin(yaw), 0],
-                   [np.sin(yaw), np.cos(yaw), 0],
-                   [0, 0, 1]])
+    Rz = np.array([[cos_y, -sin_y, 0],
+                   [sin_y, cos_y, 0],
+                   [0, 0, 1]], dtype=np.float64)
     
     R = Rz @ Ry @ Rx
     
-    # Flatten, rotate, reshape
+    # Flatten, rotate, reshape with overflow handling
     shape = x.shape
-    points = np.vstack([x.flatten(), y.flatten(), z.flatten()])
-    rotated = R @ points
+    points = np.vstack([x.flatten(), y.flatten(), z.flatten()]).astype(np.float64)
+    
+    with np.errstate(invalid='ignore', divide='ignore', over='ignore'):
+        rotated = R @ points
+        rotated = np.nan_to_num(rotated, nan=0.0, posinf=1e6, neginf=-1e6)
     
     x_rot = rotated[0].reshape(shape)
     y_rot = rotated[1].reshape(shape)
@@ -609,24 +621,21 @@ def create_docking_visualization(station_df, craft_df):
         ),
         scene=dict(
             xaxis=dict(
-                title='X Position (meters)',
-                titlefont=dict(size=14),
+                title=dict(text='X Position (meters)', font=dict(size=14)),
                 backgroundcolor='white',
                 gridcolor='#d0d0d0',
                 showbackground=True,
                 gridwidth=2
             ),
             yaxis=dict(
-                title='Y Position (meters)',
-                titlefont=dict(size=14),
+                title=dict(text='Y Position (meters)', font=dict(size=14)),
                 backgroundcolor='white',
                 gridcolor='#d0d0d0',
                 showbackground=True,
                 gridwidth=2
             ),
             zaxis=dict(
-                title='Z Position (meters)',
-                titlefont=dict(size=14),
+                title=dict(text='Z Position (meters)', font=dict(size=14)),
                 backgroundcolor='white',
                 gridcolor='#d0d0d0',
                 showbackground=True,
