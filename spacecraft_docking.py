@@ -625,23 +625,26 @@ def create_docking_visualization(station_df, craft_df):
                 backgroundcolor='white',
                 gridcolor='#d0d0d0',
                 showbackground=True,
-                gridwidth=2
+                gridwidth=2,
+                range=[-1200, 200]
             ),
             yaxis=dict(
                 title=dict(text='Y Position (meters)', font=dict(size=14)),
                 backgroundcolor='white',
                 gridcolor='#d0d0d0',
                 showbackground=True,
-                gridwidth=2
+                gridwidth=2,
+                range=[-700, 700]
             ),
             zaxis=dict(
                 title=dict(text='Z Position (meters)', font=dict(size=14)),
                 backgroundcolor='white',
                 gridcolor='#d0d0d0',
                 showbackground=True,
-                gridwidth=2
+                gridwidth=2,
+                range=[-700, 700]
             ),
-            aspectmode='data',
+            aspectmode='cube',
             camera=dict(
                 eye=dict(x=2.2, y=2.2, z=1.5),
                 center=dict(x=0, y=0, z=0)
@@ -653,6 +656,7 @@ def create_docking_visualization(station_df, craft_df):
         margin=dict(l=20, r=20, t=100, b=20),
         width=1800,
         height=1000,
+        uirevision='constant',
         updatemenus=[
             dict(
                 type='buttons',
