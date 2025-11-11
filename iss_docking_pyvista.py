@@ -428,11 +428,39 @@ def update_scene(_caller):
     
     state.frame += 1
 
-# Run animation with proper timer
-plotter.add_timer_event(max_steps=TOTAL_FRAMES, duration=int(1000/FPS), callback=update_scene)
-plotter.show()
+# Show window first
+plotter.show(interactive_update=True, auto_close=False)
 
-print("\n" + "="*70)
-print("SIMULATION COMPLETE")
-print("="*70)
+# Run animation loop manually (more reliable than timer)
+import time
+start_time = time.time()
+
+try:
+    while state.frame < TOTAL_FRAMES:
+        update_scene(None)
+        time.sleep(1.0 / FPS)  # Control framerate
+        
+        # Allow window events to process
+        if not plotter.iren.initialized:
+            break
+            
+        plotter.iren.process_events()
+        
+        # Print progress every 30 frames
+        if state.frame % 30 == 0:
+            elapsed = time.time() - start_time
+            print(f"Frame {state.frame}/{TOTAL_FRAMES} ({elapsed:.1f}s)")
+    
+    print("\n" + "="*70)
+    print("ANIMATION COMPLETE - Window will stay open")
+    print("Press 'q' to quit")
+    print("="*70)
+    
+    # Keep window open
+    plotter.iren.start()
+    
+except KeyboardInterrupt:
+    print("\nAnimation interrupted by user")
+finally:
+    plotter.close()
 
