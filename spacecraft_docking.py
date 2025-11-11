@@ -69,7 +69,10 @@ def create_spacecraft_mesh(scale=1.0):
     z_cone = np.linspace(0, 4, 8) * scale
     theta_cone, z_cone_grid = np.meshgrid(theta, z_cone)
     
-    r_cone = radius * (1 - z_cone / (4*scale))
+    r_cone = np.zeros_like(theta_cone)
+    for i in range(len(z_cone)):
+        r_cone[i, :] = radius * (1 - z_cone[i] / (4*scale))
+    
     x_cone = r_cone * np.cos(theta_cone)
     y_cone = r_cone * np.sin(theta_cone)
     
