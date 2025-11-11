@@ -243,9 +243,9 @@ print("✓ SpaceX Crew Dragon capsule")
 # ANIMATION SETUP
 # ============================================================================
 
-# Create plotter with dark space background
+# Create plotter with gradient space background (like matplotlib/plotly)
 plotter = pv.Plotter(window_size=[1920, 1080])
-plotter.set_background('black')
+plotter.set_background('#0a0a1e', top='#1a1a3e')  # Dark blue gradient like space
 
 # Add ISS module (stationary)
 plotter.add_mesh(iss_module, color='#A0A0A0', metallic=0.3, roughness=0.5,
@@ -275,6 +275,15 @@ trail_actor = plotter.add_mesh(trail, color='cyan', line_width=2,
 velocity_arrow = pv.Arrow(start=(0, 0, 0), direction=(0, 0, -1), scale=20)
 arrow_actor = plotter.add_mesh(velocity_arrow, color='#3498db')
 
+# Add reference grid/axes for spatial awareness
+plotter.show_axes()
+plotter.add_axes_at_origin(labels_off=False)
+
+# Add reference grid at origin
+grid = pv.Plane(center=(0, 0, 0), direction=(0, 0, 1), i_size=200, j_size=200, 
+               i_resolution=10, j_resolution=10)
+plotter.add_mesh(grid, style='wireframe', color='gray', opacity=0.2, line_width=1)
+
 # Lighting setup (realistic space lighting)
 light1 = pv.Light(position=(100, 0, 0), light_type='scene light')
 light2 = pv.Light(position=(-100, 100, 50), light_type='scene light', intensity=0.3)
@@ -303,14 +312,30 @@ print("="*70 + "\n")
 # ANIMATION LOOP
 # ============================================================================
 
-def update_scene():
-    """Update animation frame"""
-    global current_frame, is_paused, dragon_actor, trail_actor, arrow_actor
-    
-    if is_paused:
+print("\n" + "="*70)
+print("STARTING ANIMATION")
+print("="*70)
+print("Use mouse to rotate camera during animation")
+print("Press 'q' to quit")
+print("="*70 + "\n")
+
+# Animation state
+class AnimationState:
+    def __init__(self):
+        self.frame = 0
+        self.running = True
+
+state = AnimationState()
+
+def update_scene(_caller):
+    """Update animation frame - called by timer"""
+    if not state.running or state.frame >= TOTAL_FRAMES:
+        if state.frame >= TOTAL_FRAMES:
+            print("\nAnimation complete - looping...")
+            state.frame = 0
         return
     
-    frame = current_frame % TOTAL_FRAMES
+    frame = state.frame
     
     # Get current state
     pos = [trajectory['x'][frame], trajectory['y'][frame], trajectory['z'][frame]]
@@ -332,71 +357,78 @@ def update_scene():
     dragon.translate(pos)
     
     # Update mesh
-    plotter.remove_actor(dragon_actor)
-    dragon_actor = plotter.add_mesh(dragon, color='white', metallic=0.5, roughness=0.3)
+    plotter.remove_actor(dragon_actor, render=False)
+    dragon_actor_new = plotter.add_mesh(dragon, color='white', metallic=0.5, roughness=0.3,
+                                        render=False)
     
-    # Update trajectory trail (show last 200 frames)
-    trail_start = max(0, frame - 200)
-    trail_points = np.column_stack([trajectory['x'][trail_start:frame+1],
-                                   trajectory['y'][trail_start:frame+1],
-                                   trajectory['z'][trail_start:frame+1]])
-    if len(trail_points) > 1:
-        trail = pv.PolyData(trail_points)
-        plotter.remove_actor(trail_actor)
-        trail_actor = plotter.add_mesh(trail, color='cyan', line_width=2,
-                                      render_lines_as_tubes=True)
+    # Update trajectory trail (show last 300 frames for better visibility)
+    trail_start = max(0, frame - 300)
+    if frame > 0:
+        trail_points = np.column_stack([trajectory['x'][trail_start:frame+1],
+                                       trajectory['y'][trail_start:frame+1],
+                                       trajectory['z'][trail_start:frame+1]])
+        if len(trail_points) > 1:
+            trail = pv.PolyData(trail_points)
+            plotter.remove_actor(trail_actor, render=False)
+            trail_actor_new = plotter.add_mesh(trail, color='cyan', line_width=3,
+                                              render_lines_as_tubes=True, render=False)
     
     # Update velocity vector
     if speed > 0.01:
         vel_normalized = np.array([trajectory['vx'][frame],
                                   trajectory['vy'][frame],
                                   trajectory['vz'][frame]]) / speed
-        arrow_length = min(30, speed * 100)  # Scale with speed
+        arrow_length = min(40, speed * 150)  # Scale with speed, larger for visibility
         velocity_arrow = pv.Arrow(start=pos, direction=vel_normalized, scale=arrow_length)
-        plotter.remove_actor(arrow_actor)
-        arrow_actor = plotter.add_mesh(velocity_arrow, color='#3498db')
+        plotter.remove_actor(arrow_actor, render=False)
+        arrow_actor_new = plotter.add_mesh(velocity_arrow, color='#3498db', render=False)
     
     # Determine mission phase and status
     if distance < 1:
         phase = "SOFT CAPTURE"
-        status_color = "green"
     elif distance < 10:
         phase = "FINAL APPROACH"
-        status_color = "yellow"
     elif distance < 30:
         phase = "30m HOLD POINT"
-        status_color = "orange"
     else:
         phase = "INITIAL APPROACH"
-        status_color = "cyan"
     
-    # Update telemetry
+    # Update telemetry with COORDINATES
     telemetry = (
-        f"═══ NASA ISS DOCKING TELEMETRY ═══\n"
-        f"Mission Time:    {mission_time:6.1f} s\n"
-        f"Range to Port:   {distance:6.2f} m\n"
-        f"Closure Rate:    {speed:6.3f} m/s ({speed*100:5.2f} cm/s)\n"
-        f"Alignment Error: {alignment:6.3f}°\n"
+        f"═══════════════════════════════════\n"
+        f"NASA ISS DOCKING TELEMETRY\n"
+        f"═══════════════════════════════════\n"
+        f"Mission Time:    {mission_time:7.1f} s\n"
         f"Phase:           {phase}\n"
-        f"Frame:           {frame+1}/{TOTAL_FRAMES}"
+        f"───────────────────────────────────\n"
+        f"POSITION (meters):\n"
+        f"  X: {pos[0]:8.2f} m\n"
+        f"  Y: {pos[1]:8.2f} m\n"
+        f"  Z: {pos[2]:8.2f} m\n"
+        f"───────────────────────────────────\n"
+        f"Range to Port:   {distance:7.2f} m\n"
+        f"Closure Rate:    {speed:7.3f} m/s\n"
+        f"                 ({speed*100:6.2f} cm/s)\n"
+        f"Alignment Error: {alignment:7.3f}°\n"
+        f"───────────────────────────────────\n"
+        f"ATTITUDE (degrees):\n"
+        f"  Roll:  {np.degrees(rot[0]):7.3f}°\n"
+        f"  Pitch: {np.degrees(rot[1]):7.3f}°\n"
+        f"  Yaw:   {np.degrees(rot[2]):7.3f}°\n"
+        f"───────────────────────────────────\n"
+        f"Frame: {frame+1:4d}/{TOTAL_FRAMES}"
     )
     
-    plotter.remove_actor(telemetry_text)
-    telemetry_text = plotter.add_text(telemetry, position='upper_left', 
-                                     font_size=10, color='white', font='courier')
+    plotter.remove_actor(telemetry_text, render=False)
+    telemetry_text_new = plotter.add_text(telemetry, position='upper_left', 
+                                         font_size=9, color='white', font='courier')
     
-    current_frame += 1
+    # Render once after all updates
+    plotter.render()
+    
+    state.frame += 1
 
-# Keyboard callback for pause/play
-def toggle_pause():
-    global is_paused
-    is_paused = not is_paused
-    status = "PAUSED" if is_paused else "RUNNING"
-    print(f"Animation {status}")
-
-plotter.add_key_event('space', toggle_pause)
-
-# Run animation
+# Run animation with proper timer
 plotter.add_timer_event(max_steps=TOTAL_FRAMES, duration=int(1000/FPS), callback=update_scene)
 plotter.show()
 
