@@ -130,23 +130,21 @@ def generate_realistic_docking_trajectory(num_frames):
     pitch = np.zeros(num_frames)
     yaw = np.zeros(num_frames)
     
-    # Initial misalignment
-    roll[:phase1_end] = 0.3 * (1 - t_norm[:phase1_end]**2)
-    pitch[:phase1_end] = -0.2 * (1 - t_norm[:phase1_end]**1.5)
-    yaw[:phase1_end] = 0.15 * (1 - t_norm[:phase1_end]**2)
+    # Phase 1: Initial misalignment
+    roll[phase1_mask] = 0.3 * (1 - t1**2)
+    pitch[phase1_mask] = -0.2 * (1 - t1**1.5)
+    yaw[phase1_mask] = 0.15 * (1 - t1**2)
     
-    # Fine alignment in phase 2
-    phase2_start = phase1_end + 1
-    phase2_end_idx = phase1_end + len(t2)
-    roll[phase2_start:phase2_end_idx] = roll[phase1_end] * (1 - t2**3)
-    pitch[phase2_start:phase2_end_idx] = pitch[phase1_end] * (1 - t2**3)
-    yaw[phase2_start:phase2_end_idx] = yaw[phase1_end] * (1 - t2**3)
+    # Phase 2: Fine alignment
+    phase1_end_val = roll[phase1_mask][-1] if np.any(phase1_mask) else 0
+    roll[phase2_mask] = phase1_end_val * (1 - t2**3)
+    pitch[phase2_mask] = pitch[phase1_mask][-1] * (1 - t2**3) if np.any(phase1_mask) else 0
+    yaw[phase2_mask] = yaw[phase1_mask][-1] * (1 - t2**3) if np.any(phase1_mask) else 0
     
-    # Perfect alignment in phase 3 (very small residuals)
-    phase3_start = phase2_end_idx
-    roll[phase3_start:] = 0.01 * np.sin(50 * t3) * np.exp(-8 * t3)
-    pitch[phase3_start:] = 0.008 * np.cos(45 * t3) * np.exp(-8 * t3)
-    yaw[phase3_start:] = 0.006 * np.sin(55 * t3) * np.exp(-8 * t3)
+    # Phase 3: Perfect alignment (very small residuals)
+    roll[phase3_mask] = 0.01 * np.sin(50 * t3) * np.exp(-8 * t3)
+    pitch[phase3_mask] = 0.008 * np.cos(45 * t3) * np.exp(-8 * t3)
+    yaw[phase3_mask] = 0.006 * np.sin(55 * t3) * np.exp(-8 * t3)
     
     # Calculate velocities and distance
     dt = time[1] - time[0]
