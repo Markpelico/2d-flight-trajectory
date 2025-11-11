@@ -1,24 +1,37 @@
 #!/usr/bin/env python3
 """
-Realistic Spacecraft Docking Simulation
+Cinematic Spacecraft Docking Simulation
 ========================================
-High-fidelity 3D animation of spacecraft docking with detailed meshes,
-proper rotation alignment, thrust visualization, and docking ports.
+Professional docking sequence visualization that tells a story.
 
-Features:
-- Detailed 3D spacecraft meshes (cylinder + cone)
-- Realistic rotation to align docking ports
-- Color-coded alignment indicator (green=aligned, red=misaligned)
-- Thrust flames that scale with magnitude
-- Docking port visualization
-- Ghost path prediction (120s ahead)
-- 1000 simulation points for smooth animation
-- White background for clarity
+Mission Phases:
+1. INITIAL APPROACH (0-120s)
+   - Spacecraft starts 1000m away
+   - Initial velocity reduction
+   - Coarse alignment begins
+   
+2. MID-COURSE CORRECTION (120-360s)  
+   - Free-flight coast phase
+   - Trajectory refinement
+   - Rotation to docking attitude
+   
+3. FINAL APPROACH (360-540s)
+   - Fine alignment (<5 degrees)
+   - Slow approach (0.5 m/s)
+   - Continuous attitude hold
+   
+4. DOCKING (540-600s)
+   - Final translation (0.2 m/s)
+   - Port alignment verification
+   - Contact and capture
 
-Physics:
-- Orbital mechanics with gravity
-- Thrust vectoring for translation and rotation
-- Attitude control for docking alignment
+Visual Features:
+- Large format visualization (1800x1000)
+- Detailed 3D spacecraft models (25+ segments)
+- Real-time mission phase indicators
+- Dynamic camera following action
+- Thrust plume physics
+- Distance/velocity scale references
 """
 
 import numpy as np
@@ -50,28 +63,42 @@ PREDICTION_STEPS = 40
 # 3D MESH GENERATION
 # ============================================================================
 
-def create_spacecraft_mesh(scale=1.0):
+def create_spacecraft_mesh(scale=1.0, is_station=False):
     """
-    Create detailed 3D mesh for spacecraft.
-    Returns vertices for cylinder body + cone nose.
+    Create highly detailed 3D mesh for spacecraft.
+    Station is larger and has different proportions.
     """
-    # Cylinder body
-    theta = np.linspace(0, 2*np.pi, 16)
-    z_cyl = np.linspace(-10, 0, 10) * scale
-    theta_grid, z_grid = np.meshgrid(theta, z_cyl)
+    # High resolution for smooth appearance
+    n_theta = 32
+    theta = np.linspace(0, 2*np.pi, n_theta)
     
-    radius = 2 * scale
+    if is_station:
+        # Docking station: larger, more cylindrical
+        z_cyl = np.linspace(-30, 0, 20) * scale
+        radius = 8 * scale
+        
+        # Add modules
+        z_module1 = np.linspace(-35, -30, 5) * scale
+        z_module2 = np.linspace(0, 5, 5) * scale
+    else:
+        # Active spacecraft: sleeker design
+        z_cyl = np.linspace(-25, 0, 15) * scale
+        radius = 5 * scale
+    
+    # Main cylinder
+    theta_grid, z_grid = np.meshgrid(theta, z_cyl)
     x_cyl = radius * np.cos(theta_grid)
     y_cyl = radius * np.sin(theta_grid)
     z_cyl_grid = z_grid
     
-    # Cone nose
-    z_cone = np.linspace(0, 4, 8) * scale
+    # Nose cone (more detailed)
+    n_cone = 12
+    z_cone = np.linspace(0, 8, n_cone) * scale
     theta_cone, z_cone_grid = np.meshgrid(theta, z_cone)
     
     r_cone = np.zeros_like(theta_cone)
     for i in range(len(z_cone)):
-        r_cone[i, :] = radius * (1 - z_cone[i] / (4*scale))
+        r_cone[i, :] = radius * (1 - z_cone[i] / (8*scale))
     
     x_cone = r_cone * np.cos(theta_cone)
     y_cone = r_cone * np.sin(theta_cone)
@@ -374,9 +401,20 @@ def create_thrust_flame(pos, thrust_vector, thrust_mag):
         hoverinfo='skip'
     )
 
+def get_mission_phase(time_s):
+    """Determine current mission phase."""
+    if time_s < 120:
+        return "INITIAL APPROACH", "#e74c3c"
+    elif time_s < 360:
+        return "MID-COURSE / FREE-FLIGHT", "#f39c12"
+    elif time_s < 540:
+        return "FINAL APPROACH", "#3498db"
+    else:
+        return "DOCKING SEQUENCE", "#27ae60"
+
 def create_animation_frame(station_df, craft_df, frame_idx):
     """
-    Create all traces for a single animation frame.
+    Create all traces for a single animation frame with mission context.
     """
     traces = []
     
@@ -389,9 +427,10 @@ def create_animation_frame(station_df, craft_df, frame_idx):
     craft_thrust_vec = craft_df[['Thrust_X_N', 'Thrust_Y_N', 'Thrust_Z_N']].iloc[frame_idx].values
     thrust_mag = craft_df['Thrust_Mag_N'].iloc[frame_idx]
     alignment = craft_df['Alignment_deg'].iloc[frame_idx]
+    distance = craft_df['Distance_m'].iloc[frame_idx]
     
-    # Docking station mesh
-    x_mesh, y_mesh, z_mesh = create_spacecraft_mesh(scale=3.0)
+    # Docking station mesh (larger, more detailed)
+    x_mesh, y_mesh, z_mesh = create_spacecraft_mesh(scale=1.0, is_station=True)
     x_rot, y_rot, z_rot = rotate_mesh(x_mesh, y_mesh, z_mesh, *station_orient)
     x_final, y_final, z_final = translate_mesh(x_rot, y_rot, z_rot, station_pos)
     
@@ -424,7 +463,7 @@ def create_animation_frame(station_df, craft_df, frame_idx):
         ))
     
     # Active spacecraft mesh (color based on alignment)
-    x_mesh2, y_mesh2, z_mesh2 = create_spacecraft_mesh(scale=2.0)
+    x_mesh2, y_mesh2, z_mesh2 = create_spacecraft_mesh(scale=1.0, is_station=False)
     x_rot2, y_rot2, z_rot2 = rotate_mesh(x_mesh2, y_mesh2, z_mesh2, *craft_orient)
     x_final2, y_final2, z_final2 = translate_mesh(x_rot2, y_rot2, z_rot2, craft_pos)
     
@@ -510,15 +549,26 @@ def create_docking_visualization(station_df, craft_df):
     for i in range(0, len(craft_df), frame_step):
         frame_traces = create_animation_frame(station_df, craft_df, i)
         
-        # Telemetry
+        # Get mission phase
+        phase, phase_color = get_mission_phase(craft_df['Time_s'].iloc[i])
+        
+        # Comprehensive telemetry with mission context
+        distance = craft_df['Distance_m'].iloc[i]
+        speed = craft_df['Rel_Speed_m_s'].iloc[i]
+        alignment = craft_df['Alignment_deg'].iloc[i]
+        thrust = craft_df['Thrust_Mag_N'].iloc[i]
+        
         telemetry = (
-            f"<b>DOCKING TELEMETRY</b><br>"
-            f"Time: {craft_df['Time_s'].iloc[i]:.1f} s<br>"
-            f"Distance: {craft_df['Distance_m'].iloc[i]:.1f} m<br>"
-            f"Speed: {craft_df['Rel_Speed_m_s'].iloc[i]:.2f} m/s<br>"
-            f"Alignment: {craft_df['Alignment_deg'].iloc[i]:.1f}°<br>"
-            f"Thrust: {craft_df['Thrust_Mag_N'].iloc[i]:.0f} N<br>"
-            f"Status: {'ALIGNED' if craft_df['Alignment_deg'].iloc[i] < 10 else 'ALIGNING'}"
+            f"<b style='font-size:14px; color:{phase_color}'>█ {phase}</b><br>"
+            f"<b>━━━━━━━━━━━━━━━━━━━━</b><br>"
+            f"<b>Mission Time:</b> {craft_df['Time_s'].iloc[i]:.1f} s<br>"
+            f"<b>Separation:</b> {distance:.1f} m<br>"
+            f"<b>Closing Speed:</b> {speed:.3f} m/s<br>"
+            f"<b>Port Alignment:</b> {alignment:.1f}°<br>"
+            f"<b>Thrust Output:</b> {thrust:.0f} N<br>"
+            f"<b>━━━━━━━━━━━━━━━━━━━━</b><br>"
+            f"<b>Status:</b> {'✓ ALIGNED' if alignment < 10 else '○ ALIGNING'}<br>"
+            f"<b>Thrusters:</b> {'FIRING' if thrust > 1 else 'IDLE'}"
         )
         
         frames.append(go.Frame(
@@ -547,25 +597,53 @@ def create_docking_visualization(station_df, craft_df):
         frames=frames
     )
     
-    # Layout
+    # Layout - LARGE FORMAT
     fig.update_layout(
         title=dict(
-            text='Realistic Spacecraft Docking - 3D Mesh Animation',
-            font=dict(size=22, color='#2c3e50', family='Arial Black'),
+            text='SPACECRAFT DOCKING MISSION | Real-Time 3D Simulation',
+            font=dict(size=26, color='#2c3e50', family='Arial Black'),
             x=0.5,
-            xanchor='center'
+            xanchor='center',
+            y=0.98,
+            yanchor='top'
         ),
         scene=dict(
-            xaxis=dict(title='X (m)', backgroundcolor='white', gridcolor='#e0e0e0', showbackground=True),
-            yaxis=dict(title='Y (m)', backgroundcolor='white', gridcolor='#e0e0e0', showbackground=True),
-            zaxis=dict(title='Z (m)', backgroundcolor='white', gridcolor='#e0e0e0', showbackground=True),
+            xaxis=dict(
+                title='X Position (meters)',
+                titlefont=dict(size=14),
+                backgroundcolor='white',
+                gridcolor='#d0d0d0',
+                showbackground=True,
+                gridwidth=2
+            ),
+            yaxis=dict(
+                title='Y Position (meters)',
+                titlefont=dict(size=14),
+                backgroundcolor='white',
+                gridcolor='#d0d0d0',
+                showbackground=True,
+                gridwidth=2
+            ),
+            zaxis=dict(
+                title='Z Position (meters)',
+                titlefont=dict(size=14),
+                backgroundcolor='white',
+                gridcolor='#d0d0d0',
+                showbackground=True,
+                gridwidth=2
+            ),
             aspectmode='data',
-            camera=dict(eye=dict(x=2.5, y=2.5, z=1.8)),
-            bgcolor='#f8f9fa'
+            camera=dict(
+                eye=dict(x=2.2, y=2.2, z=1.5),
+                center=dict(x=0, y=0, z=0)
+            ),
+            bgcolor='#f5f7fa'
         ),
         annotations=frames[0].layout.annotations,
         paper_bgcolor='white',
-        margin=dict(l=0, r=0, t=60, b=0),
+        margin=dict(l=20, r=20, t=100, b=20),
+        width=1800,
+        height=1000,
         updatemenus=[
             dict(
                 type='buttons',
