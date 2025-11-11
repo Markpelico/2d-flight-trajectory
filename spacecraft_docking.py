@@ -1,24 +1,22 @@
 #!/usr/bin/env python3
 """
-Spacecraft Docking Simulation with Predictive Trajectory
-=========================================================
-Simulates two spacecraft: a docking station (passive, gravity-only) and
-an active spacecraft using thrust and free-flight to align for docking.
+Spacecraft Docking Animation - Predictive Ghost Path
+====================================================
+Beautiful real-time animation of two spacecraft docking in space.
 
 Features:
-- Realistic orbital mechanics with gravity
-- Thrust vectoring for active spacecraft
-- Predictive trajectory lines (ghost path)
-- Free-flight phases (coasting)
-- Thrust phases (active maneuvering)
-- Relative velocity and distance indicators
-- Interactive 3D visualization
+- Docking station (blue) - passive drift
+- Active spacecraft (red) - thrust maneuvering  
+- Ghost path (cyan) - shows predicted trajectory 120 seconds ahead
+- Animated trails with gradient colors
+- Thrust indicators (flames when firing)
+- Real-time distance and velocity display
+- Smooth 3D camera control during animation
 
-Physics Model:
-- Gravity gradient effects
-- Thrust vector control
-- Conservation of momentum
-- Orbital perturbations
+Controls:
+- Drag to rotate view during animation
+- Scroll to zoom
+- Animation runs automatically
 """
 
 import numpy as np
@@ -239,238 +237,221 @@ def predict_trajectory(current_pos, current_vel, current_time, horizon=PREDICTIO
 
 def create_docking_visualization(station_df, craft_df):
     """
-    Create interactive 3D visualization of the docking simulation.
+    Create beautiful animated docking visualization with ghost path.
     """
-    # Create figure
-    fig = go.Figure()
+    # Create animated frames (sample every 10 steps for smooth animation)
+    frame_step = 10
+    frames = []
     
-    # Docking station trajectory (blue)
-    fig.add_trace(go.Scatter3d(
-        x=station_df['X_m'],
-        y=station_df['Y_m'],
-        z=station_df['Z_m'],
-        mode='lines',
-        line=dict(color='blue', width=3),
-        name='Docking Station Path',
-        hovertemplate='<b>Docking Station</b><br>' +
-                      'Time: %{customdata:.1f} s<br>' +
-                      'X: %{x:.1f} m<br>' +
-                      'Y: %{y:.1f} m<br>' +
-                      'Z: %{z:.1f} m<br>' +
-                      '<extra></extra>',
-        customdata=station_df['Time_s']
-    ))
-    
-    # Active spacecraft trajectory (green for free flight, orange for thrust)
-    # Split into segments based on thrust
-    craft_thrusting = craft_df['Thrust_Mag_N'] > 1.0
-    
-    # Free flight segments
-    free_flight_mask = ~craft_thrusting
-    if free_flight_mask.any():
-        fig.add_trace(go.Scatter3d(
-            x=craft_df.loc[free_flight_mask, 'X_m'],
-            y=craft_df.loc[free_flight_mask, 'Y_m'],
-            z=craft_df.loc[free_flight_mask, 'Z_m'],
-            mode='lines',
-            line=dict(color='green', width=4),
-            name='Free Flight',
-            hovertemplate='<b>Free Flight</b><br>' +
-                          'Time: %{customdata:.1f} s<br>' +
-                          'X: %{x:.1f} m<br>' +
-                          'Y: %{y:.1f} m<br>' +
-                          'Z: %{z:.1f} m<br>' +
-                          '<extra></extra>',
-            customdata=craft_df.loc[free_flight_mask, 'Time_s']
-        ))
-    
-    # Thrust segments
-    thrust_mask = craft_thrusting
-    if thrust_mask.any():
-        fig.add_trace(go.Scatter3d(
-            x=craft_df.loc[thrust_mask, 'X_m'],
-            y=craft_df.loc[thrust_mask, 'Y_m'],
-            z=craft_df.loc[thrust_mask, 'Z_m'],
-            mode='lines',
-            line=dict(color='orange', width=4),
-            name='Thrusting',
-            hovertemplate='<b>Thrusting</b><br>' +
-                          'Time: %{customdata[0]:.1f} s<br>' +
-                          'Thrust: %{customdata[1]:.1f} N<br>' +
-                          'X: %{x:.1f} m<br>' +
-                          'Y: %{y:.1f} m<br>' +
-                          'Z: %{z:.1f} m<br>' +
-                          '<extra></extra>',
-            customdata=np.column_stack([craft_df.loc[thrust_mask, 'Time_s'],
-                                       craft_df.loc[thrust_mask, 'Thrust_Mag_N']])
-        ))
-    
-    # Predictive trajectory for final approach (ghost path)
-    final_approach_time = 540
-    final_idx = int(final_approach_time / TIME_STEP)
-    if final_idx < len(craft_df):
-        pred_pos = predict_trajectory(
-            craft_df[['X_m', 'Y_m', 'Z_m']].iloc[final_idx].values,
-            craft_df[['VX_m_s', 'VY_m_s', 'VZ_m_s']].iloc[final_idx].values,
-            final_approach_time
+    for i in range(0, len(craft_df), frame_step):
+        # Docking station position at this frame
+        station_x = station_df['X_m'].iloc[:i+1]
+        station_y = station_df['Y_m'].iloc[:i+1]
+        station_z = station_df['Z_m'].iloc[:i+1]
+        
+        # Active spacecraft position at this frame
+        craft_x = craft_df['X_m'].iloc[:i+1]
+        craft_y = craft_df['Y_m'].iloc[:i+1]
+        craft_z = craft_df['Z_m'].iloc[:i+1]
+        
+        # Predict future trajectory (ghost path)
+        if i < len(craft_df) - 1:
+            pred_pos = predict_trajectory(
+                craft_df[['X_m', 'Y_m', 'Z_m']].iloc[i].values,
+                craft_df[['VX_m_s', 'VY_m_s', 'VZ_m_s']].iloc[i].values,
+                craft_df['Time_s'].iloc[i]
+            )
+        else:
+            pred_pos = np.array([[craft_df['X_m'].iloc[i], 
+                                 craft_df['Y_m'].iloc[i], 
+                                 craft_df['Z_m'].iloc[i]]])
+        
+        # Check if thrusting
+        is_thrusting = craft_df['Thrust_Mag_N'].iloc[i] > 1.0
+        
+        # Telemetry text
+        telemetry = (
+            f"<b>DOCKING TELEMETRY</b><br>"
+            f"Time: {craft_df['Time_s'].iloc[i]:.1f} s<br>"
+            f"Distance: {craft_df['Distance_m'].iloc[i]:.1f} m<br>"
+            f"Rel Speed: {craft_df['Rel_Speed_m_s'].iloc[i]:.2f} m/s<br>"
+            f"Thrust: {'ACTIVE' if is_thrusting else 'FREE FLIGHT'}"
         )
         
-        fig.add_trace(go.Scatter3d(
-            x=pred_pos[:, 0],
-            y=pred_pos[:, 1],
-            z=pred_pos[:, 2],
-            mode='lines',
-            line=dict(color='cyan', width=2, dash='dash'),
-            name='Predicted Path (Ghost)',
-            hoverinfo='skip',
-            opacity=0.5
+        frame_data = [
+            # Docking station trail (blue)
+            go.Scatter3d(
+                x=station_x,
+                y=station_y,
+                z=station_z,
+                mode='lines',
+                line=dict(color='#2E86DE', width=3),
+                name='Station Path',
+                showlegend=(i==0),
+                hoverinfo='skip'
+            ),
+            # Docking station marker
+            go.Scatter3d(
+                x=[station_df['X_m'].iloc[i]],
+                y=[station_df['Y_m'].iloc[i]],
+                z=[station_df['Z_m'].iloc[i]],
+                mode='markers',
+                marker=dict(size=15, color='#2E86DE', symbol='square',
+                           line=dict(width=2, color='white')),
+                name='Docking Station',
+                showlegend=(i==0),
+                hoverinfo='skip'
+            ),
+            # Active spacecraft trail with gradient
+            go.Scatter3d(
+                x=craft_x,
+                y=craft_y,
+                z=craft_z,
+                mode='lines',
+                line=dict(color=('#EE5A24' if is_thrusting else '#10AC84'), width=4),
+                name='Spacecraft Path',
+                showlegend=(i==0),
+                hoverinfo='skip'
+            ),
+            # Active spacecraft marker
+            go.Scatter3d(
+                x=[craft_df['X_m'].iloc[i]],
+                y=[craft_df['Y_m'].iloc[i]],
+                z=[craft_df['Z_m'].iloc[i]],
+                mode='markers',
+                marker=dict(size=12, color=('#EE5A24' if is_thrusting else '#10AC84'),
+                           line=dict(width=2, color='white')),
+                name='Active Spacecraft',
+                showlegend=(i==0),
+                hoverinfo='skip'
+            ),
+            # Ghost path (predictive trajectory)
+            go.Scatter3d(
+                x=pred_pos[:, 0],
+                y=pred_pos[:, 1],
+                z=pred_pos[:, 2],
+                mode='lines',
+                line=dict(color='#00D2D3', width=2, dash='dash'),
+                name='Ghost Path',
+                showlegend=(i==0),
+                opacity=0.6,
+                hoverinfo='skip'
+            )
+        ]
+        
+        frames.append(go.Frame(
+            data=frame_data,
+            name=str(i),
+            layout=go.Layout(
+                annotations=[dict(
+                    x=0.02, y=0.98,
+                    xref='paper', yref='paper',
+                    text=telemetry,
+                    showarrow=False,
+                    bgcolor='rgba(0,0,0,0.8)',
+                    bordercolor='cyan',
+                    borderwidth=2,
+                    font=dict(size=12, family='Courier New', color='white'),
+                    align='left',
+                    xanchor='left',
+                    yanchor='top'
+                )]
+            )
         ))
     
-    # Start and end markers
-    fig.add_trace(go.Scatter3d(
-        x=[craft_df['X_m'].iloc[0], craft_df['X_m'].iloc[-1]],
-        y=[craft_df['Y_m'].iloc[0], craft_df['Y_m'].iloc[-1]],
-        z=[craft_df['Z_m'].iloc[0], craft_df['Z_m'].iloc[-1]],
-        mode='markers',
-        marker=dict(size=15, color=['green', 'red'], symbol=['diamond', 'square']),
-        name='Start/Docked',
-        text=['Start', 'Docked'],
-        hovertemplate='<b>%{text}</b><br>X: %{x:.1f} m<br>Y: %{y:.1f} m<br>Z: %{z:.1f} m<extra></extra>'
-    ))
-    
-    # Docking station marker at final position
-    fig.add_trace(go.Scatter3d(
-        x=[station_df['X_m'].iloc[-1]],
-        y=[station_df['Y_m'].iloc[-1]],
-        z=[station_df['Z_m'].iloc[-1]],
-        mode='markers',
-        marker=dict(size=20, color='blue', symbol='square'),
-        name='Station Final',
-        hovertemplate='<b>Docking Station</b><br>X: %{x:.1f} m<br>Y: %{y:.1f} m<br>Z: %{z:.1f} m<extra></extra>'
-    ))
+    # Initial figure with first frame data
+    fig = go.Figure(
+        data=frames[0].data,
+        frames=frames
+    )
     
     # Configure layout
     fig.update_layout(
         title=dict(
-            text='Spacecraft Docking Simulation - Predictive Trajectory',
-            font=dict(size=22, color='#2c3e50', family='Arial Black'),
+            text='Spacecraft Docking - Predictive Ghost Path Animation',
+            font=dict(size=24, color='white', family='Arial Black'),
             x=0.5,
             xanchor='center'
         ),
         scene=dict(
-            xaxis=dict(title='X Position (m)', backgroundcolor='rgb(230,230,230)', gridcolor='white', showbackground=True),
-            yaxis=dict(title='Y Position (m)', backgroundcolor='rgb(230,230,230)', gridcolor='white', showbackground=True),
-            zaxis=dict(title='Z Position (m)', backgroundcolor='rgb(230,230,230)', gridcolor='white', showbackground=True),
+            xaxis=dict(title='X (m)', backgroundcolor='#0a0a0a', gridcolor='#333', showbackground=True),
+            yaxis=dict(title='Y (m)', backgroundcolor='#0a0a0a', gridcolor='#333', showbackground=True),
+            zaxis=dict(title='Z (m)', backgroundcolor='#0a0a0a', gridcolor='#333', showbackground=True),
             aspectmode='data',
             camera=dict(
-                eye=dict(x=1.8, y=1.8, z=1.3),
+                eye=dict(x=2.0, y=2.0, z=1.5),
                 center=dict(x=0, y=0, z=0)
-            )
+            ),
+            bgcolor='#000000'
         ),
         showlegend=True,
         legend=dict(
-            x=0.02, y=0.98,
-            bgcolor='rgba(255,255,255,0.95)',
-            bordercolor='gray',
-            borderwidth=2,
-            font=dict(size=11)
+            x=0.02, y=0.85,
+            bgcolor='rgba(0,0,0,0.8)',
+            bordercolor='cyan',
+            borderwidth=1,
+            font=dict(size=11, color='white')
         ),
-        paper_bgcolor='#f0f0f0',
-        plot_bgcolor='#ffffff',
-        margin=dict(l=0, r=0, t=80, b=0),
-        hovermode='closest'
+        annotations=frames[0].layout.annotations,
+        paper_bgcolor='#000000',
+        plot_bgcolor='#000000',
+        margin=dict(l=0, r=0, t=60, b=0),
+        updatemenus=[
+            dict(
+                type='buttons',
+                showactive=True,
+                x=0.15, y=0.02,
+                xanchor='left', yanchor='bottom',
+                buttons=[
+                    dict(label='Play', method='animate',
+                         args=[None, dict(frame=dict(duration=30, redraw=True),
+                                         fromcurrent=True, mode='immediate')]),
+                    dict(label='Pause', method='animate',
+                         args=[[None], dict(frame=dict(duration=0, redraw=False),
+                                           mode='immediate')])
+                ],
+                bgcolor='cyan',
+                font=dict(color='black', size=12),
+                bordercolor='white',
+                borderwidth=2
+            ),
+            dict(
+                type='buttons',
+                showactive=True,
+                x=0.30, y=0.02,
+                xanchor='left', yanchor='bottom',
+                buttons=[
+                    dict(label='0.5x', method='animate',
+                         args=[None, dict(frame=dict(duration=60, redraw=True), mode='immediate')]),
+                    dict(label='1x', method='animate',
+                         args=[None, dict(frame=dict(duration=30, redraw=True), mode='immediate')]),
+                    dict(label='2x', method='animate',
+                         args=[None, dict(frame=dict(duration=15, redraw=True), mode='immediate')])
+                ],
+                bgcolor='white',
+                font=dict(color='black', size=11),
+                bordercolor='cyan',
+                borderwidth=2
+            )
+        ],
+        sliders=[dict(
+            active=0,
+            steps=[dict(args=[[f.name], dict(frame=dict(duration=0, redraw=True), mode='immediate')],
+                       label=f"{int(f.name)*TIME_STEP*frame_step:.0f}s",
+                       method='animate')
+                   for f in frames[::5]],
+            x=0.15, y=0.0,
+            len=0.83,
+            xanchor='left', yanchor='top',
+            bgcolor='rgba(0,255,255,0.3)',
+            bordercolor='cyan',
+            borderwidth=2,
+            font=dict(color='white')
+        )]
     )
     
     return fig
 
-def create_telemetry_plots(station_df, craft_df):
-    """
-    Create supplementary telemetry plots.
-    """
-    fig = make_subplots(
-        rows=2, cols=2,
-        subplot_titles=('Relative Distance', 'Relative Speed', 
-                       'Thrust Magnitude', 'Velocity Components'),
-        specs=[[{'type': 'scatter'}, {'type': 'scatter'}],
-               [{'type': 'scatter'}, {'type': 'scatter'}]]
-    )
-    
-    # Distance plot
-    fig.add_trace(go.Scatter(
-        x=craft_df['Time_s'],
-        y=craft_df['Distance_m'],
-        mode='lines',
-        line=dict(color='blue', width=2),
-        name='Distance'
-    ), row=1, col=1)
-    
-    # Relative speed plot
-    fig.add_trace(go.Scatter(
-        x=craft_df['Time_s'],
-        y=craft_df['Rel_Speed_m_s'],
-        mode='lines',
-        line=dict(color='green', width=2),
-        name='Relative Speed'
-    ), row=1, col=2)
-    
-    # Thrust magnitude plot
-    fig.add_trace(go.Scatter(
-        x=craft_df['Time_s'],
-        y=craft_df['Thrust_Mag_N'],
-        mode='lines',
-        line=dict(color='orange', width=2),
-        name='Thrust'
-    ), row=2, col=1)
-    
-    # Velocity components
-    fig.add_trace(go.Scatter(
-        x=craft_df['Time_s'],
-        y=craft_df['VX_m_s'],
-        mode='lines',
-        name='VX',
-        line=dict(color='red')
-    ), row=2, col=2)
-    
-    fig.add_trace(go.Scatter(
-        x=craft_df['Time_s'],
-        y=craft_df['VY_m_s'],
-        mode='lines',
-        name='VY',
-        line=dict(color='green')
-    ), row=2, col=2)
-    
-    fig.add_trace(go.Scatter(
-        x=craft_df['Time_s'],
-        y=craft_df['VZ_m_s'],
-        mode='lines',
-        name='VZ',
-        line=dict(color='blue')
-    ), row=2, col=2)
-    
-    # Update axes
-    fig.update_xaxes(title_text="Time (s)", row=1, col=1)
-    fig.update_xaxes(title_text="Time (s)", row=1, col=2)
-    fig.update_xaxes(title_text="Time (s)", row=2, col=1)
-    fig.update_xaxes(title_text="Time (s)", row=2, col=2)
-    
-    fig.update_yaxes(title_text="Distance (m)", row=1, col=1)
-    fig.update_yaxes(title_text="Speed (m/s)", row=1, col=2)
-    fig.update_yaxes(title_text="Thrust (N)", row=2, col=1)
-    fig.update_yaxes(title_text="Velocity (m/s)", row=2, col=2)
-    
-    fig.update_layout(
-        title=dict(
-            text='Docking Telemetry Data',
-            font=dict(size=18),
-            x=0.5,
-            xanchor='center'
-        ),
-        height=800,
-        showlegend=True,
-        hovermode='x unified'
-    )
-    
-    return fig
 
 # ============================================================================
 # MAIN EXECUTION
@@ -479,37 +460,28 @@ def create_telemetry_plots(station_df, craft_df):
 def main():
     """Main execution function."""
     print("\n" + "="*70)
-    print("SPACECRAFT DOCKING SIMULATION")
+    print("SPACECRAFT DOCKING ANIMATION")
     print("="*70)
-    print(f"Simulation Time: {SIMULATION_TIME} seconds")
-    print(f"Time Step: {TIME_STEP} seconds")
-    print(f"Initial Separation: {INITIAL_SEPARATION} meters")
-    print(f"Spacecraft Mass: {ACTIVE_SPACECRAFT_MASS} kg")
-    print(f"Thrust Magnitude: {THRUST_MAGNITUDE} N")
-    print("="*70)
+    print("Running physics simulation...")
     
     # Run simulation
-    print("\nRunning simulation...")
     station_df, craft_df = simulate_docking()
     
-    # Create visualizations
-    print("Creating 3D visualization...")
-    fig_3d = create_docking_visualization(station_df, craft_df)
-    
-    print("Creating telemetry plots...")
-    fig_telemetry = create_telemetry_plots(station_df, craft_df)
+    print("Creating animated visualization...")
+    fig = create_docking_visualization(station_df, craft_df)
     
     # Display results
     print("\nSimulation complete!")
-    print(f"Final distance: {craft_df['Distance_m'].iloc[-1]:.2f} meters")
+    print(f"Initial separation: {INITIAL_SEPARATION:.0f} m")
+    print(f"Final distance: {craft_df['Distance_m'].iloc[-1]:.2f} m")
     print(f"Final relative speed: {craft_df['Rel_Speed_m_s'].iloc[-1]:.3f} m/s")
-    print(f"Total delta-V used: {np.trapz(craft_df['Thrust_Mag_N'], craft_df['Time_s']) / ACTIVE_SPACECRAFT_MASS:.2f} m/s")
-    print("\nOpening visualizations in browser...")
+    print(f"Docking: {'SUCCESS' if craft_df['Distance_m'].iloc[-1] < 10 else 'IN PROGRESS'}")
+    print("\nOpening animation in browser...")
+    print("Drag to rotate | Scroll to zoom | Use controls to play animation")
     print("="*70 + "\n")
     
-    # Show figures
-    fig_3d.show()
-    fig_telemetry.show()
+    # Show animation
+    fig.show()
 
 if __name__ == "__main__":
     main()
