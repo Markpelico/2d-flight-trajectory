@@ -136,15 +136,17 @@ def generate_realistic_docking_trajectory(num_frames):
     yaw[:phase1_end] = 0.15 * (1 - t_norm[:phase1_end]**2)
     
     # Fine alignment in phase 2
-    phase2_start = phase1_end
-    roll[phase2_start:phase2_end] = roll[phase1_end] * (1 - t2**3)
-    pitch[phase2_start:phase2_end] = pitch[phase1_end] * (1 - t2**3)
-    yaw[phase2_start:phase2_end] = yaw[phase1_end] * (1 - t2**3)
+    phase2_start = phase1_end + 1
+    phase2_end_idx = phase1_end + len(t2)
+    roll[phase2_start:phase2_end_idx] = roll[phase1_end] * (1 - t2**3)
+    pitch[phase2_start:phase2_end_idx] = pitch[phase1_end] * (1 - t2**3)
+    yaw[phase2_start:phase2_end_idx] = yaw[phase1_end] * (1 - t2**3)
     
     # Perfect alignment in phase 3 (very small residuals)
-    roll[phase2_end:] = 0.01 * np.sin(50 * t3) * np.exp(-8 * t3)
-    pitch[phase2_end:] = 0.008 * np.cos(45 * t3) * np.exp(-8 * t3)
-    yaw[phase2_end:] = 0.006 * np.sin(55 * t3) * np.exp(-8 * t3)
+    phase3_start = phase2_end_idx
+    roll[phase3_start:] = 0.01 * np.sin(50 * t3) * np.exp(-8 * t3)
+    pitch[phase3_start:] = 0.008 * np.cos(45 * t3) * np.exp(-8 * t3)
+    yaw[phase3_start:] = 0.006 * np.sin(55 * t3) * np.exp(-8 * t3)
     
     # Calculate velocities and distance
     dt = time[1] - time[0]
